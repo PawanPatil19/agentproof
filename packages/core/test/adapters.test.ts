@@ -2,10 +2,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { fromAnthropicMessage, fromCitedSegments, parsePolicy, verifyRun } from "@agentproof/core";
+import { fromAnthropicMessage, fromCitedSegments, fromOpenAIResponse, parsePolicy, verifyRun } from "@agentproof/core";
 
 const fixtures = new URL("../../../fixtures/", import.meta.url);
 const message = JSON.parse(readFileSync(new URL("providers/anthropic-message.json", fixtures), "utf8"));
+const response = JSON.parse(readFileSync(new URL("providers/openai-response.json", fixtures), "utf8"));
 const policy = parsePolicy(readFileSync(new URL("agentproof.yaml", fixtures), "utf8"));
 
 const documents = [
@@ -86,5 +87,98 @@ describe("fromCitedSegments", () => {
     const adapted = fromCitedSegments([{ text: "Unsupported assertion.", citations: [] }], [], { uncited: "claims" });
     const receipt = verifyRun(envelope(adapted as never), { policy: parsePolicy("api_version: agentproof/v1\npolicy: {id: p, version: 1}\n"), mode: "enforce" });
     assert.ok(receipt.reason_codes.includes("EVIDENCE_MISSING"));
+  });
+});
+
+describe("fromOpenAIResponse", () => {
+  // The host names its sources the way OpenAI cites them: the uploaded file's ID, and the page URL.
+  const sources = [
+    { ...documents[0]! },
+    { ...documents[1]!, aliases: ["file-changelog32"] },
+  ];
+  const lenient = parsePolicy("api_version: agentproof/v1\npolicy: {id: p, version: 1}\n");
+  const single = (annotation: Record<string, unknown>, text = "Offline sync is now generally available.") => ({
+    output: [{ type: "message", content: [{ type: "output_text", text, annotations: [annotation] }] }],
+  });
+
+  it("turns each annotation into a claim with a span quote and resolvable evidence", () => {
+    const adapted = fromOpenAIResponse(response, sources);
+    assert.equal(adapted.output.claims.length, 2);
+    assert.deepEqual(adapted.output.claims[0]!.evidence_ids, ["doc-changelog-3-2"]);
+    assert.equal(adapted.output.claims[0]!.quote, "Offline sync is now generally available.");
+    assert.deepEqual(adapted.output.claims[1]!.evidence_ids, ["doc-capabilities"], "utm_source is ignored when matching URLs");
+    assert.equal(adapted.output.claims[1]!.quote, "Exports are available as PDF and Markdown");
+    assert.equal(adapted.output.text, response.output[2].content[0].text);
+    assert.ok(adapted.uncited_chars > 0, "connective text is counted, not claimed");
+  });
+
+  it("takes evidence content only from the supplied sources", () => {
+    const adapted = fromOpenAIResponse(response, sources);
+    assert.deepEqual(adapted.evidence.map((e) => e.content), sources.map((s) => s.content));
+  });
+
+  it("passes the independent checks when the sources really say it", () => {
+    const receipt = verifyRun(envelope(fromOpenAIResponse(response, sources)), { policy, mode: "enforce" });
+    assert.equal(receipt.decision, "allow", JSON.stringify(receipt.checks.filter((c) => c.status !== "pass")));
+  });
+
+  it("matches a file by a unique filename alias", () => {
+    const byName = [sources[0]!, { ...documents[1]!, aliases: ["changelog-3.2.md"] }];
+    const adapted = fromOpenAIResponse(response, byName);
+    assert.deepEqual(adapted.output.claims[0]!.evidence_ids, ["doc-changelog-3-2"]);
+  });
+
+  it("blocks a citation to a file the host never supplied", () => {
+    const forged = structuredClone(response);
+    forged.output[2].content[0].annotations[0].file_id = "file-forged";
+    forged.output[2].content[0].annotations[0].filename = "forged.md";
+    const adapted = fromOpenAIResponse(forged, sources);
+    assert.deepEqual(adapted.output.claims[0]!.evidence_ids, ["file:file-forged"]);
+    const receipt = verifyRun(envelope(adapted), { policy, mode: "enforce" });
+    assert.equal(receipt.decision, "block");
+    assert.ok(receipt.reason_codes.includes("EVIDENCE_UNKNOWN_ID"));
+  });
+
+  it("blocks when the supplied text doesn't contain the annotated span", () => {
+    const changed = structuredClone(sources);
+    changed[1]!.content = "Version 3.2 shipped on 12 August 2026. Offline sync remains in beta.";
+    const receipt = verifyRun(envelope(fromOpenAIResponse(response, changed)), { policy, mode: "enforce" });
+    assert.ok(receipt.reason_codes.includes("QUOTE_NOT_FOUND"));
+  });
+
+  it("sends url-only citations to review: the host never captured that content", () => {
+    const adapted = fromOpenAIResponse(single({ type: "url_citation", start_index: 0, end_index: 40, url: "https://news.example/a?utm_source=openai", title: "News" }));
+    assert.equal(adapted.evidence.length, 1);
+    assert.equal(adapted.evidence[0]!.locator, "https://news.example/a?utm_source=openai");
+    assert.equal(adapted.evidence[0]!.content, undefined);
+    const receipt = verifyRun(envelope(adapted), { policy: lenient, mode: "enforce" });
+    assert.equal(receipt.decision, "review");
+    assert.ok(receipt.reason_codes.includes("QUOTE_CONTENT_UNAVAILABLE"));
+  });
+
+  it("leaves the quote undefined when the span is a link, not an excerpt", () => {
+    const text = "Offline sync is GA ([lumen.example](https://lumen.example/changelog/3.2)).";
+    const adapted = fromOpenAIResponse(single({ type: "url_citation", start_index: 19, end_index: 73, url: "https://lumen.example/changelog/3.2" }, text), sources);
+    assert.equal(adapted.output.claims[0]!.quote, undefined);
+    assert.deepEqual(adapted.output.claims[0]!.evidence_ids, ["doc-changelog-3-2"], "matched by locator");
+    const strict = verifyRun(envelope(adapted), { policy, mode: "enforce" });
+    assert.ok(strict.reason_codes.includes("QUOTE_MISSING"), "require_quote decides");
+  });
+
+  it("can skip span quotes for paraphrasing models", () => {
+    const adapted = fromOpenAIResponse(response, sources, { spanQuotes: false });
+    assert.ok(adapted.output.claims.every((c) => c.quote === undefined));
+  });
+
+  it("groups annotations on the same span into one segment", () => {
+    const text = "Offline sync is now generally available.";
+    const both = { output: [{ type: "message", content: [{ type: "output_text", text, annotations: [
+      { type: "file_citation", index: 40, file_id: "file-changelog32" },
+      { type: "file_citation", index: 40, file_id: "file-other" },
+    ] }] }] };
+    const adapted = fromOpenAIResponse(both, sources);
+    assert.equal(adapted.output.claims.length, 2);
+    assert.equal(adapted.output.text, text);
+    assert.deepEqual(adapted.output.claims.map((c) => c.evidence_ids[0]), ["doc-changelog-3-2", "file:file-other"]);
   });
 });

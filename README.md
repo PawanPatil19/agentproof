@@ -150,7 +150,8 @@ The full workflow, with all three gates, is about 120 lines in
 ### Use your provider's native citations
 
 No custom output format needed. If your model already returns citations,
-the adapter builds claims and evidence from them:
+an adapter builds claims and evidence from them. There are adapters for
+Anthropic and OpenAI:
 
 ```ts
 import { fromAnthropicMessage } from "@agentproof/core";
@@ -160,9 +161,25 @@ const { output, evidence } = fromAnthropicMessage(response, documents);
 const receipt = await proof.verifyAnswer({ output, evidence });
 ```
 
+```ts
+import { fromOpenAIResponse } from "@agentproof/core";
+
+// `response` is a Responses API response (file_search / web_search). Give each
+// source you supplied the file ID, filename or URL that OpenAI will cite it by.
+const { output, evidence } = fromOpenAIResponse(response, [
+  { id: "changelog", aliases: ["file-abc123"], content: changelogText },
+  { id: "docs", locator: "https://docs.example.com/capabilities", content: pageText },
+]);
+const receipt = await proof.verifyAnswer({ output, evidence });
+```
+
 Each citation becomes its own claim. Evidence content always comes from what
-*you* supplied, never from the model's `cited_text`, so a citation can't
-ground itself. `fromCitedSegments` is the provider-neutral version.
+*you* supplied, never from the model's output, so a citation can't ground
+itself. A citation to a file you didn't supply is blocked. A web citation
+with no content you captured goes to review. OpenAI annotations carry no
+cited text, so the quote is the annotated part of the answer, used only when
+it reads like an excerpt. Pass `spanQuotes: false` if your model paraphrases.
+`fromCitedSegments` is the provider-neutral version.
 
 ### Ask "does the claim follow?" without letting the agent grade itself
 
