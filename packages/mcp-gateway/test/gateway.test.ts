@@ -85,11 +85,11 @@ describe("MCP gateway", () => {
     assert.equal(store.receipts.length, 3);
   });
 
-  test("a policy that sends failures to review holds the call for a person", async () => {
+  test("a policy that sends failures to review refuses the call pending a person", async () => {
     const { call, upstreamCalls } = await setup({ policyText: POLICY_TEXT.replace("on_required_check_fail: block", "on_required_check_fail: review") });
     const result = await call("publish.post");
     assert.equal(result.isError, true);
-    assert.match(textOf(result), /^AgentProof is holding 'publish\.post' for human review \(TOOL_NOT_ALLOWED\)\. The tool was not called\./);
+    assert.match(textOf(result), /^AgentProof refused 'publish\.post' pending human review \(TOOL_NOT_ALLOWED\); a person must approve before it is retried\. The tool was not called\./);
     assert.equal(summaryOf(result).decision, "review");
     assert.deepEqual(upstreamCalls, []);
   });
@@ -108,7 +108,8 @@ describe("MCP gateway", () => {
   test("a result that comes back after the contract deadline is withheld", async () => {
     let t = Date.parse("2026-10-19T10:00:00Z");
     const { gateway, upstreamCalls } = await setup({ verifier: { now: () => new Date(t) } });
-    // The contract is issued synchronously; the upstream call then "takes" 31 s, past the 30 s deadline.
+    // callTool issues the contract and runs the guard synchronously, before its first await,
+    // so the clock moves only after the guard passed: the upstream call "takes" 31 s, past the 30 s deadline.
     const slow = gateway.callTool("docs.read", { q: "slow" });
     t += 31_000;
     const { result, executed } = await slow;
@@ -127,6 +128,14 @@ describe("MCP gateway", () => {
     const all = ["docs.search", "docs.read", "publish.post"];
     assert.deepEqual((await (await setup({ verifier: { mode: "observe" } })).agent.listTools()).tools.map((t) => t.name), all);
     assert.deepEqual((await (await setup({ gateway: { listAllTools: true } })).agent.listTools()).tools.map((t) => t.name), all);
+  });
+
+  test("resources and prompts are not served, so nothing reaches upstream around the gate", async () => {
+    const { agent } = await setup();
+    assert.equal(agent.getServerCapabilities()?.resources, undefined);
+    assert.equal(agent.getServerCapabilities()?.prompts, undefined);
+    await assert.rejects(agent.listResources(), /Method not found/);
+    await assert.rejects(agent.listPrompts(), /Method not found/);
   });
 
   test("an upstream failure comes back as an error result with a receipt", async () => {

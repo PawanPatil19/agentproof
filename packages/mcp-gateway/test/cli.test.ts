@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { spawn } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,6 +33,11 @@ describe("gateway arguments", () => {
     assert.throws(() => parseGatewayArgs(["--policy", "p", "--contract", "c", "--worker", "w", "--bogus", "--", "s"]), /unknown option --bogus/);
     assert.throws(() => parseGatewayArgs(["--policy", "p", "--contract", "c", "--worker", "w", "--mode", "loud", "--", "s"]), /--mode must be/);
     assert.throws(() => parseGatewayArgs(["--policy", "--contract", "c"]), /--policy needs a value/);
+    assert.throws(() => parseGatewayArgs(["--policy", "p", "--contract", "c", "--worker", "w", "--list-all-tools=false", "--", "s"]), /takes no value/);
+  });
+
+  test("an inline value keeps everything after the first =", () => {
+    assert.equal(parseGatewayArgs(["--policy=a=b.yaml", "--contract", "c", "--worker", "w", "--", "s"]).policyFile, "a=b.yaml");
   });
 });
 
@@ -69,5 +75,47 @@ describe("gateway over stdio", () => {
     assert.equal(written.length, 2);
     const decisions = written.map((f) => JSON.parse(readFileSync(join(receipts, f), "utf8")).decision).sort();
     assert.deepEqual(decisions, ["allow", "block"]);
+  });
+});
+
+/** Spawn the gateway CLI; resolves with its exit code, or "timeout". */
+function runCli(args: string[], opts: { stdin?: "close" } = {}): Promise<{ code: number | "timeout"; stderr: string }> {
+  const [command, ...nodeArgs] = NODE as [string, ...string[]];
+  const child = spawn(command, [...nodeArgs, here("../src/cli.ts"), ...args], { stdio: ["pipe", "pipe", "pipe"] });
+  let stderr = "";
+  child.stderr.on("data", (d) => (stderr += d));
+  if (opts.stdin === "close") setTimeout(() => child.stdin.end(), 1500);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve({ code: "timeout", stderr });
+    }, 10_000);
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      resolve({ code: code ?? -1, stderr });
+    });
+  });
+}
+
+const GATED = ["--policy", here("./fixtures/gateway.yaml"), "--worker", "agent://assistant-1"];
+
+describe("gateway process lifecycle", () => {
+  test("it exits when the agent closes stdin, taking the upstream server with it", async () => {
+    const receipts = mkdtempSync(join(tmpdir(), "agentproof-gw-"));
+    const { code } = await runCli([...GATED, "--contract", "agent_tools", "--receipts", receipts, "--", ...NODE, here("./fixtures/upstream.ts")], { stdin: "close" });
+    assert.equal(code, 0);
+  });
+
+  test("a bad configuration exits 3 with a plain message and never starts the upstream server", async () => {
+    const { code, stderr } = await runCli([...GATED, "--contract", "nope", "--", ...NODE, here("./fixtures/upstream.ts")]);
+    assert.equal(code, 3);
+    assert.match(stderr, /declares no contract 'nope'/);
+    assert.doesNotMatch(stderr, /at .*gateway\.ts/); // no stack trace
+  });
+
+  test("it exits 1 when the upstream server dies", async () => {
+    const { code, stderr } = await runCli([...GATED, "--contract", "agent_tools", "--", process.execPath, "-e", "setTimeout(() => process.exit(0), 1000)"]);
+    assert.equal(code, 1);
+    assert.match(stderr, /upstream server exited/);
   });
 });

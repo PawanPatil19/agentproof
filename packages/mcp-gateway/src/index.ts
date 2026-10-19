@@ -7,6 +7,6 @@
  *   const gateway = createGateway({ verifier, upstream, contract: "agent_tools", worker, coordinator });
  *   await gateway.connect(new StdioServerTransport());
  */
-export { createGateway, Gateway, RECEIPT_META_KEY, summarize, type GatewayCall, type GatewayOptions, type ReceiptSummary } from "./gateway.ts";
+export { assertGatewayConfig, createGateway, Gateway, GatewayConfigError, RECEIPT_META_KEY, summarize, type GatewayCall, type GatewayOptions, type ReceiptSummary } from "./gateway.ts";
 export { parseGatewayArgs, runGateway, GATEWAY_HELP, GatewayUsageError, type GatewayConfig } from "./run.ts";
 export { GATEWAY_VERSION } from "./version.ts";

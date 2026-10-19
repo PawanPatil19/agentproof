@@ -12,8 +12,9 @@
  *
  *   allow   the upstream result, with a receipt summary in `_meta`
  *   block   an error result; a refused call never reaches the upstream server
- *   review  an error result saying the call is held for a person; nothing ran,
- *           or the result is withheld
+ *   review  an error result saying the call needs a person's approval; nothing
+ *           ran, or the result is withheld. There is no in-band approval yet:
+ *           the agent retries once a person has cleared it.
  *
  * Only tools are proxied. Resources, prompts and sampling are not exposed,
  * because they would reach the upstream server without passing the gate.
@@ -31,6 +32,11 @@ import {
   type ListToolsResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { GATEWAY_VERSION } from "./version.ts";
+
+/** The gateway's configuration can't work: unknown contract, clashing identities, or a policy that blocks every call. */
+export class GatewayConfigError extends Error {
+  override name = "GatewayConfigError";
+}
 
 /** Key under which the receipt summary travels in a tool result's `_meta`. */
 export const RECEIPT_META_KEY = "agentproof/receipt";
@@ -96,11 +102,7 @@ export class Gateway {
   private seq = 0;
 
   constructor(options: GatewayOptions) {
-    if (!options.verifier.policy.contracts.has(options.contract)) {
-      throw new Error(`Policy ${options.verifier.policy.id} declares no contract '${options.contract}'.`);
-    }
-    if (options.worker === options.coordinator) throw new Error("Worker and coordinator must be different identities.");
-    assertGatewayPolicy(options.verifier.policy, options.contract);
+    assertGatewayConfig(options);
     this.options = options;
     this.taskPrefix = options.taskPrefix ?? `mcp_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
     this.server = new Server(
@@ -108,8 +110,8 @@ export class Gateway {
       { capabilities: { tools: { listChanged: true } } },
     );
     this.server.setRequestHandler(ListToolsRequestSchema, (request) => this.listTools(request.params?.cursor));
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const call = await this.callTool(request.params.name, request.params.arguments ?? {});
+    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+      const call = await this.callTool(request.params.name, request.params.arguments ?? {}, extra.signal);
       return call.result;
     });
     // Tell the agent when the upstream tool set changes.
@@ -131,7 +133,7 @@ export class Gateway {
   }
 
   /** Run one call through the gate. Never throws for policy outcomes; they come back as results. */
-  async callTool(tool: string, args: Record<string, unknown>): Promise<GatewayCall> {
+  async callTool(tool: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<GatewayCall> {
     const { verifier, upstream, worker, coordinator } = this.options;
     const taskId = `${this.taskPrefix}/${++this.seq}`;
     const contract = verifier.issueContract(this.options.contract, { taskId, worker, coordinator });
@@ -141,7 +143,13 @@ export class Gateway {
     const guarded = verifier.guardTools(
       async (name, input) => {
         executed = true;
-        return (await upstream.callTool({ name, arguments: input as Record<string, unknown> })) as CallToolResult;
+        // Stop waiting at the contract deadline (a later result is withheld anyway),
+        // and pass the agent's cancellation through to the upstream server.
+        const timeout = verifier.policy.contracts.get(this.options.contract)?.definition.deadline_ms;
+        return (await upstream.callTool({ name, arguments: input as Record<string, unknown> }, undefined, {
+          ...(timeout ? { timeout } : {}),
+          ...(signal ? { signal } : {}),
+        })) as CallToolResult;
       },
       contract,
       { identity: worker },
@@ -198,12 +206,16 @@ export function createGateway(options: GatewayOptions): Gateway {
  * deliverable with claims. A policy that demands claims or a deliverable
  * shape would block every call, so refuse it up front with the fix.
  */
-function assertGatewayPolicy(policy: Verifier["policy"], contract: string): void {
+export function assertGatewayConfig(options: Pick<GatewayOptions, "verifier" | "contract" | "worker" | "coordinator">): void {
+  const { policy } = options.verifier;
+  const contract = options.contract;
+  if (!policy.contracts.has(contract)) throw new GatewayConfigError(`Policy ${policy.id} declares no contract '${contract}'.`);
+  if (options.worker === options.coordinator) throw new GatewayConfigError("Worker and coordinator must be different identities.");
   if (policy.evidence.minClaims > 0) {
-    throw new Error(`Policy ${policy.id} requires at least ${policy.evidence.minClaims} claim(s) per output, which would block every tool call. Set checks.evidence.min_claims: 0 in the gateway's policy.`);
+    throw new GatewayConfigError(`Policy ${policy.id} requires at least ${policy.evidence.minClaims} claim(s) per output, which would block every tool call. Set checks.evidence.min_claims: 0 in the gateway's policy.`);
   }
   if (policy.contracts.get(contract)?.validateOutput) {
-    throw new Error(`Contract '${contract}' declares an output_schema; gateway contracts gate tool calls, not deliverables, so remove it.`);
+    throw new GatewayConfigError(`Contract '${contract}' declares an output_schema; gateway contracts gate tool calls, not deliverables, so remove it.`);
   }
 }
 
@@ -218,7 +230,7 @@ function refusalText(tool: string, receipt: Receipt, executed: boolean, refusal?
   const what = executed ? "The tool ran, but its result is withheld." : "The tool was not called.";
   const lead =
     receipt.decision === "review"
-      ? `AgentProof is holding '${tool}' for human review (${codes}).`
+      ? `AgentProof refused '${tool}' pending human review (${codes}); a person must approve before it is retried.`
       : `AgentProof blocked '${tool}' (${codes}).`;
   return `${lead} ${what} ${why}`.trim() + ` Receipt ${receipt.receipt_sha256}.`;
 }

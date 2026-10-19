@@ -9,7 +9,7 @@ import { createVerifier, FileReceiptStore } from "@agentproof/sdk";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createGateway, type Gateway } from "./gateway.ts";
+import { assertGatewayConfig, createGateway, type Gateway } from "./gateway.ts";
 import { GATEWAY_VERSION } from "./version.ts";
 
 export const GATEWAY_HELP = `agentproof-mcp-gateway ${GATEWAY_VERSION} — enforce an AgentProof contract on every MCP tool call
@@ -56,8 +56,13 @@ export function parseGatewayArgs(argv: string[]): GatewayConfig {
   for (let i = 0; i < own.length; i++) {
     const arg = own[i] as string;
     if (!arg.startsWith("--")) throw new GatewayUsageError(`unexpected argument '${arg}' (put the upstream command after --)`);
-    const [name, inline] = arg.slice(2).split("=", 2) as [string, string | undefined];
-    if (name === "list-all-tools") listAllTools = true;
+    const eq = arg.indexOf("=");
+    const name = eq === -1 ? arg.slice(2) : arg.slice(2, eq);
+    const inline = eq === -1 ? undefined : arg.slice(eq + 1);
+    if (name === "list-all-tools") {
+      if (inline !== undefined) throw new GatewayUsageError("--list-all-tools takes no value");
+      listAllTools = true;
+    }
     else if (VALUE_FLAGS.has(name)) {
       const value = inline ?? own[++i];
       if (value === undefined || value.startsWith("--")) throw new GatewayUsageError(`--${name} needs a value`);
@@ -86,7 +91,13 @@ export function parseGatewayArgs(argv: string[]): GatewayConfig {
   };
 }
 
-/** Start the upstream server and serve the gateway on this process's stdio. */
+/**
+ * Start the upstream server and serve the gateway on this process's stdio.
+ * The configuration is checked before the upstream server is started, so a
+ * bad flag never leaves a child process behind. The process exits when the
+ * agent closes stdin, on SIGINT/SIGTERM, or (with code 1) when the upstream
+ * server dies.
+ */
 export async function runGateway(config: GatewayConfig): Promise<Gateway> {
   const verifier = await createVerifier({
     policyFile: config.policyFile,
@@ -94,25 +105,50 @@ export async function runGateway(config: GatewayConfig): Promise<Gateway> {
     store: new FileReceiptStore(config.receiptsDir),
     ...(config.signingKeyFile ? { signingKeyPem: await readFile(config.signingKeyFile, "utf8") } : {}),
   });
+  assertGatewayConfig({ verifier, contract: config.contract, worker: config.worker, coordinator: config.coordinator });
 
   const upstream = new Client({ name: "agentproof-mcp-gateway", version: GATEWAY_VERSION });
   const env = Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => typeof e[1] === "string"));
-  await upstream.connect(new StdioClientTransport({ command: config.command, args: config.args, env, stderr: "inherit" }));
+  let gateway: Gateway | undefined;
+  let stopping = false;
+  const shutdown = async (code: number) => {
+    if (stopping) return;
+    stopping = true;
+    await gateway?.close().catch(() => undefined);
+    await upstream.close().catch(() => undefined);
+    process.exit(code);
+  };
+  upstream.onclose = () => {
+    if (stopping) return;
+    console.error("agentproof-mcp-gateway: upstream server exited; shutting down");
+    void shutdown(1);
+  };
 
-  const gateway = createGateway({
-    verifier,
-    upstream,
-    contract: config.contract,
-    worker: config.worker,
-    coordinator: config.coordinator,
-    listAllTools: config.listAllTools,
-    ...(config.taskPrefix ? { taskPrefix: config.taskPrefix } : {}),
-  });
-  const transport = new StdioServerTransport();
-  // When the agent goes away, take the upstream server down with it.
-  transport.onclose = () => void upstream.close().catch(() => undefined);
-  upstream.onclose = () => void gateway.close().catch(() => undefined);
-  await gateway.connect(transport);
+  try {
+    await upstream.connect(new StdioClientTransport({ command: config.command, args: config.args, env, stderr: "inherit" }));
+    gateway = createGateway({
+      verifier,
+      upstream,
+      contract: config.contract,
+      worker: config.worker,
+      coordinator: config.coordinator,
+      listAllTools: config.listAllTools,
+      ...(config.taskPrefix ? { taskPrefix: config.taskPrefix } : {}),
+    });
+    await gateway.connect(new StdioServerTransport());
+  } catch (error) {
+    stopping = true;
+    await upstream.close().catch(() => undefined);
+    throw error;
+  }
+
+  // The stdio server transport doesn't notice EOF, so watch stdin ourselves:
+  // when the agent goes away, take the upstream server down with it.
+  process.stdin.once("end", () => void shutdown(0));
+  process.stdin.once("close", () => void shutdown(0));
+  process.once("SIGINT", () => void shutdown(130));
+  process.once("SIGTERM", () => void shutdown(143));
+
   console.error(`agentproof-mcp-gateway: ${verifier.mode} mode, policy ${verifier.policy.id}@${verifier.policy.version}, contract '${config.contract}', worker ${config.worker}`);
   return gateway;
 }

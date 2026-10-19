@@ -38,6 +38,10 @@ In an MCP client config, the gateway replaces the server's command:
 }
 ```
 
+Each upstream call is given the contract's `deadline_ms` as its timeout, and
+an agent's cancellation is passed through. The gateway exits when the agent
+closes its stdin, and exits with code 1 if the upstream server dies.
+
 `--worker` is the identity the receipts name. The operator sets it, never the
 agent. Run one gateway per agent identity.
 
@@ -73,7 +77,7 @@ enforcement:
 | --- | --- |
 | `allow` | The upstream result, unchanged. |
 | `block` | An error result naming the reason codes. A refused call is never sent upstream; a result that fails the contract afterwards (deadline) is withheld. |
-| `review` | An error result saying the call is held for human review. Nothing is sent upstream. |
+| `review` | An error result saying the call needs a person's approval before it is retried. A refused call is not sent upstream. |
 
 Every result carries a receipt summary in `_meta["agentproof/receipt"]`:
 decision, evaluated decision, mode, run and task IDs, receipt hash and reason
@@ -108,7 +112,10 @@ returns the decision, the receipt, whether the tool ran, and the MCP result.
 
 - Tools only. Resources, prompts and sampling are not forwarded, since they
   would bypass the gate.
-- A `review` outcome cannot yet be approved in-band; the call is refused and
-  the receipt records that it needs a person.
+- A `review` outcome cannot yet be approved in-band. The call is refused, the
+  receipt records that it needs a person, and the agent retries once cleared.
+- Each call's contract attempt and receipt stay in the verifier's memory for
+  the life of the process, so a very long-lived gateway slowly grows. Restart
+  it periodically until the SDK can release settled attempts.
 - The gateway trusts its own configuration. Anyone who can change its flags
   or policy file can change what it enforces.
