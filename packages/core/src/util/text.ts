@@ -58,13 +58,31 @@ export function classifyLocator(locator: string): LocatorKind {
   }
 }
 
-/** Remove query string, fragment and credentials from URLs; leave paths as-is. */
+/**
+ * Make a locator safe to persist. For every scheme (https, s3, ftp, plain
+ * paths…) credentials, query strings and fragments are removed — that is
+ * where signed-URL tokens and API keys live — and the result is redacted
+ * and length-capped.
+ */
 export function sanitizeLocator(locator: string): string {
-  if (classifyLocator(locator) !== "url") return redact(locator);
-  const url = new URL(locator.trim());
-  url.username = "";
-  url.password = "";
-  url.search = "";
-  url.hash = "";
-  return url.toString();
+  let out = locator.trim();
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(out)) {
+    try {
+      const url = new URL(out);
+      url.username = "";
+      url.password = "";
+      url.search = "";
+      url.hash = "";
+      out = url.toString();
+    } catch {
+      out = out.replace(/\/\/[^/@]*@/, "//"); // unparseable: still drop userinfo
+    }
+  }
+  out = out.split(/[?#]/, 1)[0] ?? "";
+  return redact(out).slice(0, 300);
+}
+
+/** Redact and cap an identifier or short message before it is persisted. */
+export function safeText(text: string, max = 500): string {
+  return redact(text).slice(0, max);
 }

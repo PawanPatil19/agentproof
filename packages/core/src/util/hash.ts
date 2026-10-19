@@ -9,6 +9,10 @@ export function canonicalJson(value: unknown): string {
 }
 
 function sortKeys(value: unknown): unknown {
+  // Match JSON.stringify: Dates and other toJSON-capable values serialize first.
+  if (value !== null && typeof value === "object" && typeof (value as { toJSON?: unknown }).toJSON === "function") {
+    return sortKeys((value as { toJSON: () => unknown }).toJSON());
+  }
   if (Array.isArray(value)) return value.map(sortKeys);
   if (value !== null && typeof value === "object") {
     const out: Record<string, unknown> = {};

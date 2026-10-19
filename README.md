@@ -125,8 +125,9 @@ enforcement:
 ```
 
 One rule: a configured check is required; required **fail → block**,
-required **unknown → review**, checker crash → block (all configurable).
-Unknown keys are rejected. Full template: `npx agentproof init`.
+required **unknown → review**, checker crash → block. An output must declare
+at least `min_claims` claims (default 1). Boundary-integrity checks can't be
+made advisory, and unknown keys are rejected. Full template: `npx agentproof init`.
 
 ## Repository
 
@@ -135,13 +136,13 @@ packages/core     pure engine: policy, checks, decisions, receipts, HTML report
 packages/sdk      runtime gates: contracts, tool guard, approvals, receipt store
 packages/cli      agentproof command
 examples/         research-handoff two-agent reference app
-fixtures/         27 reviewed failure-mode runs + expected outcomes
+fixtures/         30 reviewed failure-mode runs + expected outcomes
 scripts/          fixture generator, benchmark
 docs/             CRITIQUE.md (what changed from the handoff and why), DESIGN.md
 ```
 
 ```bash
-npm test          # 79 tests: fixtures, policy, receipts, SDK lifecycle, enforcement, CLI, end-to-end
+npm test          # 109 tests: fixtures, policy, receipts, hardening, SDK lifecycle, enforcement, CLI, end-to-end
 npm run bench     # 20 claims, ~1 MB evidence, 1,000 runs → p95 ≈ 33 ms
 npm run build     # tsc project references → dist/
 ```

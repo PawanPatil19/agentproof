@@ -41,6 +41,7 @@ registry:                # every ID referenced below must be declared here
 
 checks:
   evidence:
+    min_claims: 1                # an answer that declares no claims is not "verified"
     require_evidence_for_each_claim: true
     require_quote: true          # each claim carries an exact excerpt from its source
     min_quote_chars: 12
@@ -48,6 +49,14 @@ checks:
     max_source_age_days: 365     # uses trusted published_at, not capture time
   numeric:
     relative_tolerance: 0.005    # 0.5% for rounding
+
+final_answer:                # what the writer may show a person
+  output_schema:
+    type: object
+    required: [text, claims]
+    properties:
+      text: {type: string, minLength: 1}
+      claims: {type: array, minItems: 1}
 
 contracts:
   research_to_writer:

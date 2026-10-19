@@ -34,6 +34,10 @@ export const checkTools: Check = (ctx) => {
       const how = blocked === events.length ? "blocked before invocation" : `invoked ${plural(events.length - blocked, "time")} (observe mode)`;
       return result("tools.permission", target, "fail", "TOOL_NOT_ALLOWED", `'${tool}' is not in allowed_tools; ${how}.`);
     }
+    const violated = events.find((e) => e.reason_code !== undefined);
+    if (violated) {
+      return result("tools.permission", target, "fail", violated.reason_code!, `'${tool}' was called outside the contract's terms: ${violated.reason ?? violated.reason_code}.`);
+    }
     return pass("tools.permission", target, `'${tool}' allowed; called ${plural(events.length, "time")}.`);
   });
 };

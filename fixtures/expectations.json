@@ -177,6 +177,28 @@
     ],
     "note": "Not a valid envelope (misspelt field)."
   },
+  "no-claims": {
+    "decision": "block",
+    "reasons": [
+      "SCHEMA_INVALID",
+      "CLAIMS_MISSING"
+    ],
+    "note": "Output declares no claims; nothing would be verified."
+  },
+  "contract-at-final-answer": {
+    "decision": "block",
+    "reasons": [
+      "ENVELOPE_INVALID"
+    ],
+    "note": "A contract relabelled as a final answer to skip its checks."
+  },
+  "tool-before-acceptance": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_NOT_ACCEPTED"
+    ],
+    "note": "Observe mode let a tool run before acceptance; the event still fails."
+  },
   "secret-in-claim": {
     "decision": "allow",
     "reasons": [],

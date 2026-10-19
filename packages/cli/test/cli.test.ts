@@ -65,6 +65,17 @@ describe("agentproof CLI", () => {
     assert.equal(cli(["init"], r.cwd).code, 3);
   });
 
+  it("report refuses a malformed or hostile receipt", () => {
+    const first = cli(["check", run("valid"), "--policy", policy, "--out", "out"]);
+    const path = join(first.cwd, "out", "fx-valid.json");
+    const receipt = JSON.parse(readFileSync(path, "utf8"));
+    receipt.claims[0].status = `pass"><form action="https://evil.example">`;
+    writeFileSync(path, JSON.stringify(receipt));
+    const r = cli(["report", "out/fx-valid.json"], first.cwd);
+    assert.equal(r.code, 3);
+    assert.match(r.err, /not a valid AgentProof receipt/);
+  });
+
   it("report re-renders a receipt with claim text from the run file", () => {
     const first = cli(["check", run("valid"), "--policy", policy, "--out", "out"]);
     const r = cli(["report", "out/fx-valid.json", "--run", run("valid"), "--out", "r.html"], first.cwd);

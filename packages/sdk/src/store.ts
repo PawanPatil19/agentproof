@@ -18,7 +18,10 @@ export class MemoryReceiptStore implements ReceiptStore {
   }
 }
 
-const safeName = (id: string) => id.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120);
+const safeName = (id: string) => {
+  const name = id.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120);
+  return name === "latest" || name.startsWith(".") ? `run-${name}` : name;
+};
 
 /** Write a file atomically with owner-only permissions. */
 export async function writePrivateFile(path: string, contents: string): Promise<void> {

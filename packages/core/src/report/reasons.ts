@@ -5,6 +5,7 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   OK: "Passed",
   NOT_APPLICABLE: "Not applicable",
   ENVELOPE_INVALID: "The run file is not a valid AgentProof envelope",
+  CLAIMS_MISSING: "The output declares no claims, so nothing was verified",
   SCHEMA_INVALID: "Output does not match the promised schema",
   EVIDENCE_MISSING: "A claim cites no evidence",
   EVIDENCE_UNKNOWN_ID: "A cited evidence ID does not exist",

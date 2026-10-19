@@ -30,7 +30,12 @@ const esc = (value: unknown): string =>
 
 const STATUS_LABEL: Record<CheckStatus, string> = { pass: "Pass", fail: "Fail", unknown: "Unknown", not_applicable: "N/A" };
 
-const pill = (status: CheckStatus) => `<span class="pill ${status}">${STATUS_LABEL[status]}</span>`;
+const STATUSES: readonly CheckStatus[] = ["pass", "fail", "unknown", "not_applicable"];
+/** Class names come from a fixed set, never from the receipt. */
+const statusClass = (status: unknown): CheckStatus => (STATUSES.includes(status as CheckStatus) ? (status as CheckStatus) : "unknown");
+const num = (value: unknown): number => (Number.isFinite(Number(value)) ? Number(value) : 0);
+
+const pill = (status: CheckStatus) => `<span class="pill ${statusClass(status)}">${STATUS_LABEL[statusClass(status)]}</span>`;
 
 const short = (hash?: string) => (hash ? `${esc(hash.replace(/^sha256:/, "").slice(0, 12))}…` : "—");
 
@@ -62,10 +67,16 @@ function headline(receipt: Receipt): { title: string; detail: string } {
 
 export function renderReport(receipt: Receipt, options: ReportOptions = {}): string {
   const text = options.claimText ?? new Map<string, ClaimText>();
-  const cov = receipt.coverage;
+  const c0 = receipt.coverage;
+  const cov = {
+    claims_total: num(c0.claims_total),
+    claims_with_evidence: num(c0.claims_with_evidence),
+    claims_passing: num(c0.claims_passing),
+    checks: { pass: num(c0.checks.pass), fail: num(c0.checks.fail), unknown: num(c0.checks.unknown), not_applicable: num(c0.checks.not_applicable) },
+  };
   const total = Math.max(receipt.checks.length, 1);
   const { title, detail } = headline(receipt);
-  const tone = receipt.evaluated_decision;
+  const tone = (["allow", "block", "review"] as const).find((d) => d === receipt.evaluated_decision) ?? "block";
   const showsText = receipt.claims.some((c) => c.text !== undefined || text.has(c.id));
 
   const claimChecks = (id: string) => receipt.checks.filter((r) => r.target === `claim:${id}`);
@@ -76,7 +87,8 @@ export function renderReport(receipt: Receipt, options: ReportOptions = {}): str
       const t = text.get(claim.id);
       const body = claim.text ?? t?.text;
       const results = claimChecks(claim.id);
-      return `<details class="claim ${claim.status}"${claim.status === "fail" || claim.status === "unknown" ? " open" : ""}>
+      const cls = statusClass(claim.status);
+      return `<details class="claim ${cls}"${cls === "fail" || cls === "unknown" ? " open" : ""}>
   <summary>
     ${pill(claim.status)}
     <span class="claim-id">${esc(claim.id)}</span>
@@ -124,7 +136,7 @@ export function renderReport(receipt: Receipt, options: ReportOptions = {}): str
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'">
 <title>AgentProof · ${esc(receipt.run_id)}</title>
 <style>${STYLES}</style>
 </head>

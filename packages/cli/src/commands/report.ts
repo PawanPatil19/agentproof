@@ -1,4 +1,4 @@
-import { renderReport, verifyReceiptDigest, type Receipt } from "@agentproof/core";
+import { parseReceipt, renderReport, verifyReceiptDigest } from "@agentproof/core";
 import { writePrivateFile } from "@agentproof/sdk";
 import { flag, parseArgs, UsageError } from "../args.ts";
 import { CliError, claimTextOf, EXIT, readJson } from "../io.ts";
@@ -12,8 +12,10 @@ export async function report(argv: string[]): Promise<number> {
   const args = parseArgs(argv, { values: ["run", "out"] });
   const [receiptPath] = args.positionals;
   if (!receiptPath) throw new UsageError("report needs a receipt file");
-  const receipt = (await readJson(receiptPath)) as Receipt;
-  if (receipt?.receipt_version !== "agentproof.receipt/v1") throw new CliError(`${receiptPath} is not an AgentProof receipt`);
+  // Receipt files are untrusted input: validate shape before rendering anything.
+  const parsed = parseReceipt(await readJson(receiptPath));
+  if (!parsed.ok) throw new CliError(`${receiptPath} is not a valid AgentProof receipt: ${parsed.problems}`);
+  const { receipt } = parsed;
   if (!verifyReceiptDigest(receipt)) console.error("warning: receipt digest does not match its contents — it was edited after sealing");
   const runPath = flag(args, "run");
   const claimText = runPath ? claimTextOf(await readJson(runPath)) : undefined;

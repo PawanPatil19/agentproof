@@ -3,7 +3,7 @@ import type { ValidateFunction } from "ajv";
 import type { Decision, Mode } from "../types.ts";
 import { createAjv, describeErrors } from "../util/ajv.ts";
 import { digestOf } from "../util/hash.ts";
-import { isCheckId, type CheckId } from "../checks/ids.ts";
+import { INTEGRITY_CHECKS, isCheckId, type CheckId } from "../checks/ids.ts";
 import { POLICY_SCHEMA } from "./schema.ts";
 
 // ── Policy document (what users write) ───────────────────────────────────────
@@ -28,6 +28,7 @@ export interface PolicyDocument {
   registry?: { sources?: string[]; tools?: string[] };
   checks?: {
     evidence?: {
+      min_claims?: number;
       require_evidence_for_each_claim?: boolean;
       require_quote?: boolean;
       min_quote_chars?: number;
@@ -67,6 +68,8 @@ export interface CompiledPolicy {
   mode: Mode;
   privacy: { capture: "hashes" | "claims"; retentionDays: number };
   evidence: {
+    /** An output with fewer declared claims fails `output.claims`. */
+    minClaims: number;
     requireEvidenceForEachClaim: boolean;
     requireQuote: boolean;
     minQuoteChars: number;
@@ -183,8 +186,9 @@ export function compilePolicy(doc: unknown): CompiledPolicy {
 
   const advisory = new Set<CheckId>();
   for (const id of policy.enforcement?.advisory_checks ?? []) {
-    if (isCheckId(id)) advisory.add(id);
-    else issues.push({ path: "/enforcement/advisory_checks", message: `unknown check '${id}'` });
+    if (!isCheckId(id)) issues.push({ path: "/enforcement/advisory_checks", message: `unknown check '${id}'` });
+    else if (INTEGRITY_CHECKS.has(id)) issues.push({ path: "/enforcement/advisory_checks", message: `'${id}' guards the verification boundary and cannot be advisory` });
+    else advisory.add(id);
   }
 
   if (issues.length > 0) throw new PolicyError(issues);
@@ -200,6 +204,7 @@ export function compilePolicy(doc: unknown): CompiledPolicy {
       retentionDays: policy.privacy?.retention_days ?? 7,
     },
     evidence: {
+      minClaims: evidence.min_claims ?? 1,
       requireEvidenceForEachClaim: evidence.require_evidence_for_each_claim ?? true,
       requireQuote: evidence.require_quote ?? false,
       minQuoteChars: evidence.min_quote_chars ?? 12,

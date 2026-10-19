@@ -74,6 +74,7 @@ All v1 checks are deterministic. Each decides for itself whether it applies.
 | ID | Runs when | Fails on | Unknown on |
 | --- | --- | --- | --- |
 | `envelope.structure` | always | invalid envelope | input could not be read |
+| `output.claims` | `min_claims` > 0 (default 1) | output declares too few claims | — |
 | `output.schema` | contract or `final_answer` declares a schema | schema mismatch | — |
 | `evidence.reference` | per claim | no evidence (if required), unknown ID, empty content | — |
 | `evidence.quote` | per claim | no quote (if required), quote too short, quote not in cited content | content not captured |
@@ -82,7 +83,7 @@ All v1 checks are deterministic. Each decides for itself whether it applies.
 | `evidence.source` | `allowed_source_ids` set | source not allowed / missing | — |
 | `evidence.freshness` | `max_source_age_days` set | older than limit | no trusted `published_at` |
 | `numeric.fidelity` | claim has `value` | value outside tolerance, unit differs | no cited record holds the key |
-| `tools.permission` | contract has `allowed_tools` | tool not allowed (even if blocked), caller ≠ worker | — |
+| `tools.permission` | contract has `allowed_tools` | tool not allowed (even if blocked), caller ≠ worker, call made outside the contract's terms (before acceptance, after deadline) even if observe mode let it run | — |
 | `contract.binding` | worker completion under a policy with contracts | missing, unknown, policy changed, digest altered, not accepted, wrong acceptor | — |
 | `contract.deadline` | worker completion with a contract | submitted after deadline | invalid deadline |
 | `contract.lifecycle` | SDK only | replay, superseded attempt, forged submitter, edited contract | — |
@@ -103,7 +104,10 @@ most severe wins: block > review > allow
 ```
 
 A configured check is required. To keep a check visible but non-blocking,
-list it in `advisory_checks`. In observe mode `decision` is always `allow`
+list it in `advisory_checks` — content checks only. Checks that guard the
+boundary itself (`envelope.structure`, `contract.*`, `tools.permission`,
+`receipt.persistence`) cannot be advisory, and `on_verifier_error` cannot be
+`allow`. In observe mode `decision` is always `allow`
 and `evaluated_decision` holds what enforcement would have done.
 
 The engine never throws on input and never fails open: an unreadable
@@ -130,8 +134,24 @@ proposed → accepted → running → submitted → validated | rejected
   binds it in a closure. `identities` in `createVerifier` maps logical agent
   names to allowed runtime identities.
 
+- **One contract per task and name.** Further attempts only come from
+  `retry()`, which refuses while an attempt is still being verified, so the
+  repair limit can't be reset and a task never has two live attempts.
+- **A contract only counts at a worker boundary.** An envelope that pairs a
+  contract with `boundary: final_answer` is invalid.
+
 Inside one process this is integrity and replay protection, not
-authentication — a compromised host can bypass any in-process gate.
+authentication — a compromised host can bypass any in-process gate. The
+same applies to `agentproof check` on a `run.json`: contract digests are
+unkeyed, so a replay proves the file is internally consistent, not that this
+verifier issued the contract. Only the SDK's ledger knows that.
+
+## Review approvals
+
+`approve()` looks the receipt up among those this verifier issued (by
+digest) and decides from its own copy, so an edited and re-sealed receipt is
+refused. An approval binds to that receipt and output hash, expires after
+`review_timeout_ms`, and is single-use. Blocks cannot be approved.
 
 ## Receipts and privacy
 
@@ -139,15 +159,19 @@ A receipt contains IDs, hashes, locators, versions, every check result,
 coverage, tool events and the decision, sealed with `receipt_sha256`.
 
 By default it **omits** evidence bodies and claim text (hashes instead),
-strips URL credentials/query/fragment, and redacts known secret formats in
-anything textual. `privacy.capture: claims` adds redacted claim text.
+strips credentials, query strings and fragments from locators of every
+scheme (`https`, `s3`, `ftp`, plain paths), and redacts and length-caps every
+agent-controlled string — IDs, targets, messages, tool names. Identifiers
+are restricted to a plain character set at the envelope boundary. `privacy.capture: claims` adds redacted claim text.
 Receipts are written atomically with mode `0600` in a `0700` directory.
 
 A seal detects edits, not tampering: anyone who can rewrite the file can
 re-seal it. Signed receipts are future work.
 
-The HTML report is fully static: no scripts, a restrictive CSP, every string
-escaped, links only for `http(s)` locators. It can show claim text when
+The HTML report is fully static: no scripts, a CSP that also forbids forms
+and `<base>`, every string escaped, class names drawn from fixed sets, links
+only for `http(s)` locators. `agentproof report` validates a receipt file
+against a schema before rendering it. It can show claim text when
 generated from a run file the developer already holds, and says so.
 
 ## Performance

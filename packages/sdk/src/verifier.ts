@@ -92,6 +92,8 @@ export class Verifier {
   private readonly newId: () => string;
   private readonly ledger = new ContractLedger();
   private readonly approvals = new Map<string, { approval: Approval; used: boolean }>();
+  /** Every receipt this verifier produced, by digest. Approvals are only ever granted against these. */
+  private readonly issuedReceipts = new Map<string, Receipt>();
 
   constructor(options: VerifierOptions & { policy: CompiledPolicy }) {
     this.policy = options.policy;
@@ -106,6 +108,10 @@ export class Verifier {
 
   /** Issue a contract from the policy to one worker for one task. State: proposed. */
   issueContract(name: string, binding: { taskId: string; worker: string; coordinator: string }): ContractInstance {
+    // Re-issuing would reset the attempt counter and dodge the repair limit.
+    if (this.ledger.forTask(binding.taskId).some((e) => e.contract.name === name)) {
+      throw new ContractError("CONTRACT_STATE_INVALID", `Task ${binding.taskId} already has a '${name}' contract; use retry() for another attempt.`);
+    }
     return this.issue(name, binding.taskId, binding.worker, binding.coordinator, 1);
   }
 
@@ -136,6 +142,7 @@ export class Verifier {
     const entry = this.entryFor(previous);
     if (entry.state === "validated") throw new ContractError("CONTRACT_STATE_INVALID", "Attempt already validated; nothing to repair.");
     if (entry.state === "superseded") throw new ContractError("CONTRACT_STATE_INVALID", "Attempt was already retried.");
+    if (entry.state === "submitted") throw new ContractError("CONTRACT_STATE_INVALID", "Attempt is being verified; wait for its receipt before retrying.");
     const repairs = entry.contract.attempt; // attempt 1 → this is repair #1
     if (repairs > this.policy.enforcement.maxRepairAttempts) {
       throw new ContractError("REPAIR_LIMIT_REACHED", `Repair limit (${this.policy.enforcement.maxRepairAttempts}) reached for task ${entry.contract.task_id}.`);
@@ -162,7 +169,7 @@ export class Verifier {
       const entry = this.ledger.get(contract.attempt_id);
       const violation = this.toolViolation(entry, tool, caller.identity);
       const event: ToolEvent = { tool, agent: caller.identity, at: this.now().toISOString(), outcome: "invoked" };
-      if (violation) event.reason = violation.message;
+      if (violation) Object.assign(event, { reason: violation.message, reason_code: violation.reason });
 
       if (violation && this.mode === "enforce") {
         entry?.toolEvents.push({ ...event, outcome: "blocked" });
@@ -224,7 +231,8 @@ export class Verifier {
       submitted_at: this.now().toISOString(),
     };
     const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra }));
-    if (entry && firstSubmission) entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
+    // Only settle an attempt that is still ours to settle.
+    if (entry && firstSubmission && entry.state === "submitted") entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
     return receipt;
   }
 
@@ -244,11 +252,6 @@ export class Verifier {
     return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now }));
   }
 
-  /** Verify a pre-built envelope (e.g. a replayed `run.json`). */
-  async verifyEnvelope(envelope: unknown): Promise<Receipt> {
-    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now }));
-  }
-
   // ── Review ─────────────────────────────────────────────────────────────────
 
   /**
@@ -256,7 +259,10 @@ export class Verifier {
    * approval is bound to that exact output hash and receipt, expires after
    * `review_timeout_ms`, and can be redeemed once. Blocks cannot be approved.
    */
-  approve(receipt: Receipt, reviewer: { id: string; reason?: string }): Approval {
+  approve(presented: Receipt, reviewer: { id: string; reason?: string }): Approval {
+    // Decide from our own copy, never from the object the caller hands back.
+    const receipt = this.issuedReceipts.get(presented.receipt_sha256);
+    if (!receipt) throw new ApprovalError("APPROVAL_RECEIPT_MISMATCH", "Receipt was not issued by this verifier (or was edited).");
     if (receipt.evaluated_decision !== "review") {
       throw new ApprovalError("APPROVAL_NOT_REVIEWABLE", `Only 'review' outcomes can be approved; this receipt is '${receipt.evaluated_decision}'.`);
     }
@@ -352,7 +358,13 @@ export class Verifier {
   }
 
   /** Persist before release. If a durable receipt cannot be written, protected release is blocked. */
-  private async finish(receipt: Receipt): Promise<Receipt> {
+  private async finish(evaluated: Receipt): Promise<Receipt> {
+    const receipt = await this.persist(evaluated);
+    this.issuedReceipts.set(receipt.receipt_sha256, receipt);
+    return receipt;
+  }
+
+  private async persist(receipt: Receipt): Promise<Receipt> {
     if (this.store === false) return receipt;
     try {
       await this.store.save(receipt);

@@ -202,6 +202,15 @@ add("invalid-envelope", "Not a valid envelope (misspelt field).", "block", ["ENV
   const { evidence: ev, ...rest } = r;
   return { ...rest, evidense: ev };
 });
+add("no-claims", "Output declares no claims; nothing would be verified.", "block", ["SCHEMA_INVALID", "CLAIMS_MISSING"], (r) => {
+  r.output.claims = [];
+});
+add("contract-at-final-answer", "A contract relabelled as a final answer to skip its checks.", "block", ["ENVELOPE_INVALID"], (r) => {
+  r.boundary = "final_answer";
+});
+add("tool-before-acceptance", "Observe mode let a tool run before acceptance; the event still fails.", "block", ["CONTRACT_NOT_ACCEPTED"], (r) => {
+  r.tool_events![0] = { ...r.tool_events![0]!, reason: "Contract not accepted yet; no tool calls allowed.", reason_code: "CONTRACT_NOT_ACCEPTED" };
+});
 add("secret-in-claim", "Valid run whose claim text contains a secret; receipts must not leak it.", "allow", [], (r) => {
   r.output.claims[0]!.text += " (debug key sk-live_ABCDEFGHIJKLMNOPQRSTUVWX)";
 });

@@ -3,7 +3,7 @@ import type { CheckId } from "./ids.ts";
 import { checkContractBinding, checkContractDeadline } from "./contract.ts";
 import { checkFreshness, checkIntegrity, checkLocators, checkQuotes, checkReferences, checkSources } from "./evidence.ts";
 import { checkNumeric } from "./numeric.ts";
-import { checkOutputSchema } from "./output.ts";
+import { checkClaimCoverage, checkOutputSchema } from "./output.ts";
 import { checkTools } from "./tools.ts";
 
 /**
@@ -15,6 +15,7 @@ export const CHECKS: ReadonlyArray<{ id: CheckId; run: Check }> = [
   { id: "contract.binding", run: checkContractBinding },
   { id: "contract.deadline", run: checkContractDeadline },
   { id: "output.schema", run: checkOutputSchema },
+  { id: "output.claims", run: checkClaimCoverage },
   { id: "tools.permission", run: checkTools },
   { id: "evidence.reference", run: checkReferences },
   { id: "evidence.quote", run: checkQuotes },

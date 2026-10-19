@@ -63,6 +63,8 @@ export interface ToolEvent {
   /** What the guard did at call time. */
   outcome?: "invoked" | "blocked";
   reason?: string;
+  /** Set by the guard when the call violated the contract (even if observe mode let it run). */
+  reason_code?: ReasonCode;
 }
 
 /** A contract instance as issued to one worker for one attempt. */
@@ -102,6 +104,8 @@ export interface RunEnvelope {
   contract?: ContractInstance;
   /** When the output was submitted. Used as the reference time for freshness and deadlines. */
   submitted_at?: string;
+  /** Free-form host metadata. Ignored by checks, never copied into receipts. */
+  metadata?: Record<string, unknown>;
 }
 
 // ── Results ──────────────────────────────────────────────────────────────────
@@ -115,6 +119,7 @@ export type ReasonCode =
   | "OK"
   | "NOT_APPLICABLE"
   | "ENVELOPE_INVALID"
+  | "CLAIMS_MISSING"
   | "SCHEMA_INVALID"
   | "EVIDENCE_MISSING"
   | "EVIDENCE_UNKNOWN_ID"

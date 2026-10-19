@@ -23,7 +23,7 @@ import type { CompiledPolicy } from "./policy/compile.ts";
 import type { ResolvedClaim } from "./checks/context.ts";
 import { decide } from "./decide.ts";
 import { canonicalJson, sha256 } from "./util/hash.ts";
-import { redact, sanitizeLocator } from "./util/text.ts";
+import { redact, safeText, sanitizeLocator } from "./util/text.ts";
 import { CHECKER_VERSION, RECEIPT_VERSION } from "./version.ts";
 
 export interface ReceiptInput {
@@ -72,21 +72,23 @@ export function buildReceipt(input: ReceiptInput): Receipt {
   const { decision: evaluated, reasons } = decide(results, policy);
   const includeText = policy.privacy.capture === "claims";
 
+  // Everything below that the agent controls is redacted and capped: IDs,
+  // messages and targets can carry secrets as easily as claim text can.
   const claims: ReceiptClaim[] = input.claims.map((c) => ({
-    id: c.id,
+    id: safeText(c.id, 128),
     text_sha256: sha256(c.text),
     ...(includeText ? { text: redact(c.text) } : {}),
-    evidence_ids: c.evidence_ids,
+    evidence_ids: c.evidence_ids.map((id) => safeText(id, 128)),
     status: claimStatus(c.id, results),
   }));
 
   const evidence: ReceiptEvidence[] = input.evidence.map((e) => ({
-    id: e.id,
-    source_id: e.source_id,
+    id: safeText(e.id, 128),
+    source_id: e.source_id === undefined ? undefined : safeText(e.source_id, 128),
     locator: e.locator === undefined ? undefined : sanitizeLocator(e.locator),
     content_sha256: e.content !== undefined ? sha256(e.content) : e.content_sha256?.replace(/^sha256:/, ""),
-    published_at: e.published_at,
-    revision: e.revision,
+    published_at: e.published_at === undefined ? undefined : safeText(e.published_at, 64),
+    revision: e.revision === undefined ? undefined : safeText(e.revision, 128),
   }));
 
   const c = input.contract;
@@ -114,10 +116,15 @@ export function buildReceipt(input: ReceiptInput): Receipt {
     evaluated_decision: evaluated,
     reason_codes: reasons,
     coverage: coverageOf(claims, results, input.toolEvents.length),
-    checks: results,
+    checks: results.map((r) => ({ ...r, target: safeText(r.target, 160), message: safeText(r.message) })),
     claims,
     evidence,
-    tool_events: input.toolEvents.map((t) => ({ ...t, reason: t.reason && redact(t.reason) })),
+    tool_events: input.toolEvents.map((t) => ({
+      ...t,
+      tool: safeText(t.tool, 128),
+      agent: safeText(t.agent, 128),
+      reason: t.reason === undefined ? undefined : safeText(t.reason),
+    })),
     output_sha256: hashOutput(input.output),
   };
   return seal(receipt);

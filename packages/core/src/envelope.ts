@@ -8,6 +8,13 @@ import { createAjv, describeErrors } from "./util/ajv.ts";
 
 const str = { type: "string" };
 const nonEmpty = { type: "string", minLength: 1 };
+/**
+ * Identifiers the agent controls end up in receipts and reports, so they are
+ * short and plain: no spaces, quotes, angle brackets or control characters.
+ */
+const ident = { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._:/@#+-]{0,127}$" };
+const valueKey = { type: "string", pattern: "^[A-Za-z0-9_.-]{1,64}$" };
+const unit = { type: "string", maxLength: 32, pattern: "^[^<>\"'`\\u0000-\\u001f]*$" };
 
 const ENVELOPE_SCHEMA = {
   type: "object",
@@ -28,8 +35,8 @@ const ENVELOPE_SCHEMA = {
         additionalProperties: false,
         required: ["id"],
         properties: {
-          id: nonEmpty,
-          source_id: nonEmpty,
+          id: ident,
+          source_id: ident,
           locator: str,
           content: str,
           content_sha256: { type: "string", pattern: "^(sha256:)?[0-9a-fA-F]{64}$" },
@@ -38,11 +45,12 @@ const ENVELOPE_SCHEMA = {
           captured_at: str,
           values: {
             type: "object",
+            propertyNames: valueKey,
             additionalProperties: {
               type: "object",
               additionalProperties: false,
               required: ["value"],
-              properties: { value: { type: "number" }, unit: str },
+              properties: { value: { type: "number" }, unit },
             },
           },
         },
@@ -54,7 +62,14 @@ const ENVELOPE_SCHEMA = {
         type: "object",
         additionalProperties: false,
         required: ["tool", "agent"],
-        properties: { tool: nonEmpty, agent: nonEmpty, at: str, outcome: { enum: ["invoked", "blocked"] }, reason: str },
+        properties: {
+          tool: ident,
+          agent: ident,
+          at: str,
+          outcome: { enum: ["invoked", "blocked"] },
+          reason: { type: "string", maxLength: 500 },
+          reason_code: { type: "string", pattern: "^[A-Z_]{2,40}$" },
+        },
       },
     },
     contract: {
@@ -92,14 +107,14 @@ const CLAIMS_SCHEMA = {
     type: "object",
     required: ["text"],
     properties: {
-      id: nonEmpty,
+      id: ident,
       text: str,
       quote: str,
-      evidence_ids: { type: "array", items: nonEmpty },
+      evidence_ids: { type: "array", items: ident },
       value: {
         type: "object",
         required: ["key", "value"],
-        properties: { key: nonEmpty, value: { type: "number" }, unit: str },
+        properties: { key: valueKey, value: { type: "number" }, unit },
       },
     },
   },
@@ -118,6 +133,11 @@ export function parseEnvelope(input: unknown): EnvelopeParse {
     return { ok: false, problems: describeErrors(validateEnvelope.errors, 5) };
   }
   const envelope = input as unknown as RunEnvelope;
+
+  // A contract only means something at a worker boundary; anything else would skip its checks.
+  if (envelope.contract && envelope.boundary === "final_answer") {
+    return { ok: false, problems: "a contract was supplied with boundary 'final_answer'; contracts are verified at 'worker_completion'" };
+  }
 
   const seen = new Set<string>();
   for (const record of envelope.evidence ?? []) {

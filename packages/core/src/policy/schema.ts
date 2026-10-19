@@ -44,6 +44,7 @@ export const POLICY_SCHEMA = {
           type: "object",
           additionalProperties: false,
           properties: {
+            min_claims: { type: "integer", minimum: 0 },
             require_evidence_for_each_claim: { type: "boolean" },
             require_quote: { type: "boolean" },
             min_quote_chars: { type: "integer", minimum: 1 },
@@ -91,7 +92,8 @@ export const POLICY_SCHEMA = {
       properties: {
         on_required_check_fail: decision,
         on_required_check_unknown: decision,
-        on_verifier_error: decision,
+        // A crashed check must never allow; observe mode already lets work continue.
+        on_verifier_error: { enum: ["block", "review"] },
         advisory_checks: idList,
         review_timeout_ms: { type: "integer", minimum: 1 },
         max_repair_attempts: { type: "integer", minimum: 0 },
