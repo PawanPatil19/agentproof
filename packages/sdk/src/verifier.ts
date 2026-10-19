@@ -17,12 +17,14 @@ import {
   baselinePolicy,
   contractInstanceDigest,
   hashOutput,
+  judgeClaims,
   parsePolicy,
   verifyRun,
   type CheckResult,
   type CompiledPolicy,
   type ContractInstance,
   type EvidenceRecord,
+  type Judge,
   type Mode,
   type RawResult,
   type ReasonCode,
@@ -49,6 +51,11 @@ export interface VerifierOptions {
    * issued to identities listed for the contract's declared worker/coordinator.
    */
   identities?: Record<string, string[]>;
+  /**
+   * Independent semantic judge, required when the policy enables
+   * `checks.semantics`. Sees only claim + excerpt; never the agent's context.
+   */
+  judge?: Judge;
   /** Where receipts go. `false` disables persistence (tests, ephemeral runs). */
   store?: ReceiptStore | false;
   now?: () => Date;
@@ -71,7 +78,11 @@ export async function createVerifier(options: VerifierOptions = {}): Promise<Ver
   let policy = options.policy;
   if (!policy && options.policyText !== undefined) policy = parsePolicy(options.policyText);
   if (!policy && options.policyFile) policy = parsePolicy(await readFile(options.policyFile, "utf8"));
-  return new Verifier({ ...options, policy: policy ?? baselinePolicy() });
+  const compiled = policy ?? baselinePolicy();
+  if (compiled.semantics.enabled && !options.judge) {
+    throw new Error(`Policy ${compiled.id} enables checks.semantics but no judge was configured.`);
+  }
+  return new Verifier({ ...options, policy: compiled });
 }
 
 const lifecycle = (status: CheckResult["status"], reason: ReasonCode, message: string): RawResult => ({
@@ -88,6 +99,7 @@ export class Verifier {
   readonly mode: Mode;
   private readonly store: ReceiptStore | false;
   private readonly identities?: Record<string, string[]>;
+  private readonly judge?: Judge;
   private readonly now: () => Date;
   private readonly newId: () => string;
   private readonly ledger = new ContractLedger();
@@ -100,6 +112,7 @@ export class Verifier {
     this.mode = options.mode ?? options.policy.mode;
     this.store = options.store === undefined ? new FileReceiptStore() : options.store;
     this.identities = options.identities;
+    this.judge = options.judge;
     this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? (() => randomUUID().replace(/-/g, "").slice(0, 16));
   }
@@ -230,6 +243,7 @@ export class Verifier {
       contract: entry?.contract ?? input.contract,
       submitted_at: this.now().toISOString(),
     };
+    extra.push(...(await this.judged(envelope)));
     const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra }));
     // Only settle an attempt that is still ours to settle.
     if (entry && firstSubmission && entry.state === "submitted") entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
@@ -249,7 +263,8 @@ export class Verifier {
       evidence: input.evidence ?? [],
       submitted_at: this.now().toISOString(),
     };
-    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now }));
+    const extraResults = await this.judged(envelope);
+    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults }));
   }
 
   // ── Review ─────────────────────────────────────────────────────────────────
@@ -355,6 +370,10 @@ export class Verifier {
     const allowed = this.policy.contracts.get(c.name)?.allowedTools;
     if (allowed !== "any" && !allowed?.has(tool)) return { reason: "TOOL_NOT_ALLOWED", message: `'${tool}' is not in allowed_tools for ${c.name} (tools are denied by default).` };
     return undefined;
+  }
+
+  private async judged(envelope: RunEnvelope): Promise<RawResult[]> {
+    return this.judge && this.policy.semantics.enabled ? judgeClaims(envelope, this.policy, this.judge) : [];
   }
 
   /** Persist before release. If a durable receipt cannot be written, protected release is blocked. */

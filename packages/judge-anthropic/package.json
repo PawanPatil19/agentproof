@@ -1,0 +1,21 @@
+{
+  "name": "@agentproof/judge-anthropic",
+  "version": "0.1.0",
+  "description": "Reference semantic judge for AgentProof backed by Claude. Sees only claim + excerpt.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "source": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "@agentproof/core": "0.1.0",
+    "@anthropic-ai/sdk": "0.131.0"
+  }
+}

@@ -8,6 +8,7 @@ import { CHECKS, type CheckContext, type RawResult } from "./checks/index.ts";
 import { markRequired } from "./decide.ts";
 import { parseEnvelope } from "./envelope.ts";
 import { buildReceipt } from "./receipt.ts";
+import { judgeMissing } from "./semantics.ts";
 
 export interface VerifyOptions {
   policy: CompiledPolicy;
@@ -68,6 +69,8 @@ export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
     }
   }
   raw.push(...(options.extraResults ?? []));
+  // Semantic checks enabled but nothing judged (e.g. a CLI replay): say so, don't pass silently.
+  if (policy.semantics.enabled && !raw.some((r) => r.check === "claims.support")) raw.push(...judgeMissing(claims));
   const results: CheckResult[] = markRequired(raw, policy);
 
   return buildReceipt({

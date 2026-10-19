@@ -37,6 +37,7 @@ export interface PolicyDocument {
       max_source_age_days?: number;
     };
     numeric?: { absolute_tolerance?: number; relative_tolerance?: number };
+    semantics?: { enabled?: boolean; timeout_ms?: number; max_claims?: number; concurrency?: number };
   };
   final_answer?: { output_schema?: Record<string, unknown> };
   contracts?: Record<string, ContractDefinition>;
@@ -83,6 +84,8 @@ export interface CompiledPolicy {
     maxSourceAgeDays?: number;
   };
   numeric: { absoluteTolerance: number; relativeTolerance: number };
+  /** Opt-in model assessment of claim support. Needs a Judge at runtime. */
+  semantics: { enabled: boolean; timeoutMs: number; maxClaims: number; concurrency: number };
   finalAnswerSchema?: ValidateFunction;
   contracts: ReadonlyMap<string, CompiledContract>;
   enforcement: {
@@ -227,6 +230,12 @@ export function compilePolicy(doc: unknown): CompiledPolicy {
     numeric: {
       absoluteTolerance: policy.checks?.numeric?.absolute_tolerance ?? 0,
       relativeTolerance: policy.checks?.numeric?.relative_tolerance ?? 0,
+    },
+    semantics: {
+      enabled: policy.checks?.semantics?.enabled ?? false,
+      timeoutMs: policy.checks?.semantics?.timeout_ms ?? 15_000,
+      maxClaims: policy.checks?.semantics?.max_claims ?? 20,
+      concurrency: policy.checks?.semantics?.concurrency ?? 4,
     },
     finalAnswerSchema,
     contracts,

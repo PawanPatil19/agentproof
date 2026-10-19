@@ -27,6 +27,7 @@ export { contractInstanceDigest, type ContractTerms } from "./contract.ts";
 export { CHECK_IDS, INTEGRITY_CHECKS, isCheckId, type CheckId, type RawResult } from "./checks/index.ts";
 export { canonicalJson, digestOf, sha256 } from "./util/hash.ts";
 export { classifyLocator, normalizeForMatch, redact, safeText, sanitizeLocator } from "./util/text.ts";
+export { excerptFor, judgeClaims, type Judge, type JudgeInput, type JudgeResult, type JudgeVerdict } from "./semantics.ts";
 export { renderReport, type ClaimText, type ReportOptions } from "./report/html.ts";
 export { REASON_TEXT } from "./report/reasons.ts";
 export { parseReceipt, type ReceiptParse } from "./report/schema.ts";
