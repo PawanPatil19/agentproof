@@ -1,0 +1,98 @@
+{
+  "api_version": "agentproof/v1",
+  "run_id": "fx-expired",
+  "task_id": "task-42",
+  "boundary": "worker_completion",
+  "output": {
+    "claims": [
+      {
+        "id": "c1",
+        "text": "Offline sync is generally available as of version 3.2.",
+        "quote": "Offline sync is now generally available.",
+        "evidence_ids": [
+          "doc-changelog-3-2"
+        ]
+      },
+      {
+        "id": "c2",
+        "text": "Notes can be exported to PDF and Markdown.",
+        "quote": "Exports are available as PDF and Markdown.",
+        "evidence_ids": [
+          "doc-capabilities"
+        ]
+      },
+      {
+        "id": "c3",
+        "text": "The Pro plan costs $12 per member per month.",
+        "quote": "Pricing for the Pro plan is $12 per member per month.",
+        "evidence_ids": [
+          "doc-changelog-3-2"
+        ],
+        "value": {
+          "key": "pro_price",
+          "value": 12,
+          "unit": "USD/member/month"
+        }
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "id": "doc-capabilities",
+      "source_id": "product-docs",
+      "locator": "https://docs.lumen.example/capabilities?session=abc123",
+      "content": "Lumen Notes 3.2 supports offline sync on iOS and Android. Exports are available as PDF and Markdown. Team workspaces allow up to 50 members on the Pro plan.",
+      "content_sha256": "eccce4e5fa06997e4b1ac548325d72439dac4bdc8db45bd6ffeff7334d458e6b",
+      "published_at": "2026-08-14",
+      "captured_at": "2026-10-19T10:00:02.000Z"
+    },
+    {
+      "id": "doc-changelog-3-2",
+      "source_id": "changelog",
+      "locator": "https://lumen.example/changelog/3.2",
+      "content": "Version 3.2 shipped on 12 August 2026. Offline sync is now generally available. Pricing for the Pro plan is $12 per member per month.",
+      "content_sha256": "11909b87d6b837fbb2b5cdfa79dc815b4621cc25a1ed582222ab42425b06b411",
+      "published_at": "2026-08-12",
+      "captured_at": "2026-10-19T10:00:03.000Z",
+      "values": {
+        "pro_price": {
+          "value": 12,
+          "unit": "USD/member/month"
+        }
+      }
+    }
+  ],
+  "tool_events": [
+    {
+      "tool": "docs.search",
+      "agent": "agent://researcher-1",
+      "at": "2026-10-19T10:00:02.000Z",
+      "outcome": "invoked"
+    },
+    {
+      "tool": "docs.read",
+      "agent": "agent://researcher-1",
+      "at": "2026-10-19T10:00:02.500Z",
+      "outcome": "invoked"
+    }
+  ],
+  "contract": {
+    "name": "research_to_writer",
+    "version": 1,
+    "definition_digest": "sha256:585c00c6951ae51d82665394386886fa0ac07a30b9c9d08e94e54a5259a14f5a",
+    "task_id": "task-42",
+    "attempt_id": "att-0001",
+    "attempt": 1,
+    "coordinator": "agent://writer-1",
+    "worker": "agent://researcher-1",
+    "issued_at": "2026-10-19T10:00:00.000Z",
+    "deadline_at": "2026-10-19T10:00:30.000Z",
+    "digest": "sha256:ee106c9d1d038cada5b1cbb58dd9034b312c21d4db40caac302b63dc3be2bc0e",
+    "acceptance": {
+      "identity": "agent://researcher-1",
+      "digest": "sha256:ee106c9d1d038cada5b1cbb58dd9034b312c21d4db40caac302b63dc3be2bc0e",
+      "at": "2026-10-19T10:00:01.000Z"
+    }
+  },
+  "submitted_at": "2026-10-19T10:01:00.000Z"
+}

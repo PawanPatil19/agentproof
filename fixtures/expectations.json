@@ -1,0 +1,185 @@
+{
+  "valid": {
+    "decision": "allow",
+    "reasons": [],
+    "note": "Every obligation met."
+  },
+  "missing-evidence-id": {
+    "decision": "block",
+    "reasons": [
+      "EVIDENCE_UNKNOWN_ID"
+    ],
+    "note": "Claim cites src-404, which was never captured."
+  },
+  "claim-without-evidence": {
+    "decision": "block",
+    "reasons": [
+      "SCHEMA_INVALID",
+      "EVIDENCE_MISSING"
+    ],
+    "note": "Claim cites nothing; schema and evidence policy both object."
+  },
+  "fabricated-quote": {
+    "decision": "block",
+    "reasons": [
+      "QUOTE_NOT_FOUND"
+    ],
+    "note": "Real source, plausible quote, the source never says it."
+  },
+  "short-quote": {
+    "decision": "block",
+    "reasons": [
+      "QUOTE_TOO_SHORT"
+    ],
+    "note": "A two-word quote cannot ground a claim."
+  },
+  "empty-evidence": {
+    "decision": "block",
+    "reasons": [
+      "EVIDENCE_EMPTY",
+      "QUOTE_NOT_FOUND"
+    ],
+    "note": "Cited record captured with empty content."
+  },
+  "content-tampered": {
+    "decision": "block",
+    "reasons": [
+      "CONTENT_HASH_MISMATCH"
+    ],
+    "note": "Content edited after capture; hash no longer matches."
+  },
+  "content-not-captured": {
+    "decision": "review",
+    "reasons": [
+      "QUOTE_CONTENT_UNAVAILABLE"
+    ],
+    "note": "Only references were captured, so quotes cannot be checked."
+  },
+  "schema-invalid": {
+    "decision": "block",
+    "reasons": [
+      "SCHEMA_INVALID"
+    ],
+    "note": "Output carries a field the contract does not allow."
+  },
+  "numeric-mismatch": {
+    "decision": "block",
+    "reasons": [
+      "NUMERIC_MISMATCH"
+    ],
+    "note": "Narrative number differs from the captured value."
+  },
+  "unit-mismatch": {
+    "decision": "block",
+    "reasons": [
+      "NUMERIC_UNIT_MISMATCH"
+    ],
+    "note": "Same number, different unit."
+  },
+  "numeric-value-missing": {
+    "decision": "review",
+    "reasons": [
+      "NUMERIC_VALUE_MISSING"
+    ],
+    "note": "Numeric claim cites a record with no structured value."
+  },
+  "stale-source": {
+    "decision": "allow",
+    "reasons": [],
+    "note": "Source is two years old; freshness is advisory, so it is shown but allowed."
+  },
+  "source-date-missing": {
+    "decision": "allow",
+    "reasons": [],
+    "note": "No publication date; advisory unknown."
+  },
+  "disallowed-source": {
+    "decision": "block",
+    "reasons": [
+      "SOURCE_NOT_ALLOWED"
+    ],
+    "note": "Evidence from a source outside the allowlist."
+  },
+  "unsafe-locator": {
+    "decision": "block",
+    "reasons": [
+      "LOCATOR_UNSAFE"
+    ],
+    "note": "A javascript: locator would be an XSS vector in any report."
+  },
+  "unauthorized-tool": {
+    "decision": "block",
+    "reasons": [
+      "TOOL_NOT_ALLOWED"
+    ],
+    "note": "Worker tried publish.post; the guard blocked it before invocation."
+  },
+  "foreign-tool-caller": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_IDENTITY_MISMATCH"
+    ],
+    "note": "A tool call under this contract came from another agent."
+  },
+  "expired": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_EXPIRED"
+    ],
+    "note": "Submitted after the deadline."
+  },
+  "not-accepted": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_NOT_ACCEPTED"
+    ],
+    "note": "Worker never accepted the contract."
+  },
+  "accepted-other-digest": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_DIGEST_MISMATCH"
+    ],
+    "note": "Worker accepted a different digest."
+  },
+  "deadline-extended": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_DIGEST_MISMATCH"
+    ],
+    "note": "Deadline edited after issue; instance digest breaks."
+  },
+  "acceptance-by-other": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_IDENTITY_MISMATCH"
+    ],
+    "note": "Accepted by an identity that is not the worker."
+  },
+  "policy-changed": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_POLICY_CHANGED"
+    ],
+    "note": "Contract issued under different obligations than the current policy."
+  },
+  "missing-contract": {
+    "decision": "block",
+    "reasons": [
+      "CONTRACT_MISSING"
+    ],
+    "note": "Worker completion without a contract."
+  },
+  "invalid-envelope": {
+    "decision": "block",
+    "reasons": [
+      "ENVELOPE_INVALID"
+    ],
+    "note": "Not a valid envelope (misspelt field)."
+  },
+  "secret-in-claim": {
+    "decision": "allow",
+    "reasons": [],
+    "note": "Valid run whose claim text contains a secret; receipts must not leak it."
+  }
+}
