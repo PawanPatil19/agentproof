@@ -17,7 +17,37 @@ export interface ContractDefinition {
   worker: string;
   deadline_ms: number;
   allowed_tools?: string[];
+  /** Per-tool argument rules and limits, keyed by tool name. See `ToolConstraint`. */
+  tool_constraints?: Record<string, ToolConstraint>;
   output_schema?: Record<string, unknown>;
+}
+
+/**
+ * What a contract lets a worker do *with* a tool, not just whether it may call it.
+ * Field paths are dotted (`payee.id`). Missing fields fail closed.
+ *
+ *   payments.send:
+ *     args_schema: { type: object, required: [amount, currency, to] }
+ *     allowed_values: { currency: [SGD, USDC], to: [merchant-a, merchant-b] }
+ *     amount_field: amount
+ *     max_per_call: 50        # each call's amount
+ *     max_total: 200          # summed over the task (all attempts), or over window_ms
+ *     max_calls: 10
+ *     window_ms: 86400000     # optional rolling window for max_total / max_calls
+ */
+export interface ToolConstraint {
+  args_schema?: Record<string, unknown>;
+  allowed_values?: Record<string, Array<string | number | boolean>>;
+  amount_field?: string;
+  max_per_call?: number;
+  max_total?: number;
+  max_calls?: number;
+  window_ms?: number;
+}
+
+export interface CompiledToolConstraint {
+  definition: ToolConstraint;
+  validateArgs?: ValidateFunction;
 }
 
 export interface PolicyDocument {
@@ -63,6 +93,8 @@ export interface CompiledContract {
    * `allowed_tools` permits none; `["*"]` is the explicit opt-in to any tool.
    */
   allowedTools: ReadonlySet<string> | "any";
+  /** Argument rules and limits per tool. Tools without an entry are checked by name only. */
+  toolConstraints: ReadonlyMap<string, CompiledToolConstraint>;
   validateOutput?: ValidateFunction;
 }
 
@@ -174,11 +206,35 @@ export function compilePolicy(doc: unknown): CompiledPolicy {
     }
     const tools = definition.allowed_tools ?? [];
     if (tools.includes("*") && tools.length > 1) issues.push({ path: `${path}/allowed_tools`, message: "'*' allows every tool; list it alone" });
+    const toolConstraints = new Map<string, CompiledToolConstraint>();
+    for (const [tool, constraint] of Object.entries(definition.tool_constraints ?? {})) {
+      const at = `${path}/tool_constraints/${tool}`;
+      if (!tools.includes("*") && !tools.includes(tool)) issues.push({ path: at, message: `tool '${tool}' is not in allowed_tools, so its constraints would never apply` });
+      if ((constraint.max_per_call !== undefined || constraint.max_total !== undefined) && !constraint.amount_field) {
+        issues.push({ path: at, message: "max_per_call and max_total need amount_field (the argument to meter)" });
+      }
+      if (constraint.window_ms !== undefined && constraint.max_total === undefined && constraint.max_calls === undefined) {
+        issues.push({ path: at, message: "window_ms only applies to max_total or max_calls" });
+      }
+      if (constraint.max_per_call !== undefined && constraint.max_total !== undefined && constraint.max_per_call > constraint.max_total) {
+        issues.push({ path: at, message: "max_per_call is larger than max_total" });
+      }
+      const compiledConstraint: CompiledToolConstraint = { definition: constraint };
+      if (constraint.args_schema) {
+        try {
+          compiledConstraint.validateArgs = ajv.compile(constraint.args_schema);
+        } catch (error) {
+          issues.push({ path: `${at}/args_schema`, message: (error as Error).message });
+        }
+      }
+      toolConstraints.set(tool, compiledConstraint);
+    }
     const compiled: CompiledContract = {
       name,
       definition,
       definitionDigest: contractDefinitionDigest(name, definition),
       allowedTools: tools.includes("*") ? "any" : new Set(tools),
+      toolConstraints,
     };
     if (definition.output_schema) {
       try {

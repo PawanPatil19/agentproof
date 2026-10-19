@@ -1,5 +1,6 @@
 /**
- * In-memory record of every contract attempt this verifier issued.
+ * Record of every contract attempt this verifier issued. Lives in memory;
+ * a `StateStore` snapshots it so it survives a restart.
  *
  *   proposed → accepted → running → submitted → validated | rejected
  *                                             ↘ superseded (a retry replaced it)
@@ -33,5 +34,19 @@ export class ContractLedger {
   /** All attempts for a task, oldest first. */
   forTask(taskId: string): AttemptEntry[] {
     return [...this.attempts.values()].filter((e) => e.contract.task_id === taskId);
+  }
+
+  /** Every attempt, oldest first (for snapshots). */
+  entries(): AttemptEntry[] {
+    return [...this.attempts.values()];
+  }
+
+  /** Replace the ledger's contents with a snapshot. Contracts are frozen again on the way in. */
+  restore(entries: readonly AttemptEntry[]): void {
+    this.attempts.clear();
+    for (const entry of entries) {
+      const contract = Object.freeze({ ...entry.contract, ...(entry.contract.acceptance ? { acceptance: Object.freeze({ ...entry.contract.acceptance }) } : {}) });
+      this.attempts.set(contract.attempt_id, { contract, state: entry.state, toolEvents: entry.toolEvents.map((e) => ({ ...e })) });
+    }
   }
 }

@@ -69,6 +69,13 @@ const ENVELOPE_SCHEMA = {
           outcome: { enum: ["invoked", "blocked"] },
           reason: { type: "string", maxLength: 500 },
           reason_code: { type: "string", pattern: "^[A-Z_]{2,40}$" },
+          amount: { type: "number", minimum: 0 },
+          consumed: {
+            type: "object",
+            additionalProperties: false,
+            required: ["calls"],
+            properties: { calls: { type: "integer", minimum: 0 }, total: { type: "number", minimum: 0 } },
+          },
         },
       },
     },

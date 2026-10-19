@@ -9,5 +9,6 @@
  */
 export { createVerifier, Verifier, type Approval, type ToolExecutor, type VerifierOptions } from "./verifier.ts";
 export { ContractLedger, type AttemptEntry, type AttemptState } from "./ledger.ts";
+export { FileStateStore, MemoryStateStore, assertVerifierState, type ApprovalRecord, type IssuedReceiptRef, type StateStore, type VerifierState } from "./state.ts";
 export { FileReceiptStore, MemoryReceiptStore, writePrivateFile, type ReceiptStore } from "./store.ts";
 export { AgentProofError, ApprovalError, ContractError, ToolBlockedError, type ApprovalFailure } from "./errors.ts";
