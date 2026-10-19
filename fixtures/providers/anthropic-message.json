@@ -1,0 +1,41 @@
+{
+  "_note": "Synthetic Messages API response in the documented citations shape. Documents were sent with citations enabled, in the order listed in the test.",
+  "id": "msg_synthetic_01",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "stop_reason": "end_turn",
+  "content": [
+    { "type": "text", "text": "Here is what changed in 3.2. " },
+    {
+      "type": "text",
+      "text": "Offline sync is now generally available",
+      "citations": [
+        {
+          "type": "char_location",
+          "cited_text": "Offline sync is now generally available.",
+          "document_index": 1,
+          "document_title": "Changelog 3.2",
+          "start_char_index": 39,
+          "end_char_index": 80
+        }
+      ]
+    },
+    { "type": "text", "text": ", and " },
+    {
+      "type": "text",
+      "text": "notes export to PDF and Markdown",
+      "citations": [
+        {
+          "type": "char_location",
+          "cited_text": "Exports are available as PDF and Markdown.",
+          "document_index": 0,
+          "document_title": "Capabilities",
+          "start_char_index": 58,
+          "end_char_index": 100
+        }
+      ]
+    },
+    { "type": "text", "text": "." }
+  ]
+}

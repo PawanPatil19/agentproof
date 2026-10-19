@@ -30,3 +30,13 @@ export { classifyLocator, normalizeForMatch, redact, safeText, sanitizeLocator }
 export { renderReport, type ClaimText, type ReportOptions } from "./report/html.ts";
 export { REASON_TEXT } from "./report/reasons.ts";
 export { parseReceipt, type ReceiptParse } from "./report/schema.ts";
+export {
+  fromAnthropicMessage,
+  fromCitedSegments,
+  type AdaptedRun,
+  type AdaptOptions,
+  type AnthropicMessageLike,
+  type CitedSegment,
+  type NormalizedCitation,
+  type SuppliedSource,
+} from "./adapters/cited.ts";
