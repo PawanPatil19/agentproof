@@ -24,6 +24,8 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   NUMERIC_UNIT_MISMATCH: "A number uses a different unit than its evidence",
   NUMERIC_VALUE_MISSING: "No evidence records the claimed number",
   TOOL_NOT_ALLOWED: "The worker called a tool the contract forbids",
+  TOOL_ARGS_INVALID: "A tool call's arguments are outside what the contract allows",
+  TOOL_LIMIT_EXCEEDED: "A tool call would exceed the contract's per-call, total or call-count limit",
   CONTRACT_MISSING: "The handoff has no contract",
   CONTRACT_UNKNOWN: "The contract is not declared in the policy",
   CONTRACT_NOT_ACCEPTED: "The worker never accepted the contract",

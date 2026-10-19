@@ -45,8 +45,10 @@ argument, including what this project deliberately doesn't do, is in
 </p>
 
 1. **Tool guard.** Every tool call a worker makes is checked against its
-   contract before it executes. The caller's identity comes from your code,
-   never from the agent, so an agent can't borrow another agent's permissions.
+   contract before it executes: the tool name, and optionally its arguments
+   (allowed values, a JSON Schema, per-call and total limits, a call count).
+   The caller's identity comes from your code, never from the agent, so an
+   agent can't borrow another agent's permissions.
 2. **Completion gate.** The worker's deliverable is checked before the
    coordinator reads it: output schema, quotes found verbatim in the captured
    sources, allowed sources, numbers within tolerance, the exact contract
@@ -121,11 +123,13 @@ npm run agentproof -- check my-run.json --policy agentproof.yaml    # CI gate: e
 ### Gate a handoff between agents
 
 ```ts
-import { createVerifier } from "@agentproof/sdk";
+import { createVerifier, FileStateStore } from "@agentproof/sdk";
 
 const proof = await createVerifier({
   policyFile: "./agentproof.yaml",
   identities: { researcher: ["agent://researcher-1"], writer: ["agent://writer-1"] },
+  // Contracts, tool usage and approvals survive a restart (one process per file).
+  state: new FileStateStore("./agentproof-state/state.json"),
 });
 
 let contract = proof.issueContract("research_to_writer", {
@@ -241,12 +245,33 @@ contracts:
     worker: researcher
     deadline_ms: 30000
     allowed_tools: [docs.search, docs.read]   # tools are denied by default
+  pay_invoice:
+    version: 1
+    coordinator: treasury
+    worker: payer
+    deadline_ms: 3600000
+    allowed_tools: [payments.send]
+    tool_constraints:                          # what the worker may do *with* a tool
+      payments.send:
+        args_schema: { type: object, required: [amount, currency, to] }
+        allowed_values: { currency: [SGD, USDC], to: [merchant-a, merchant-b] }
+        amount_field: amount                   # dotted path into the arguments
+        max_per_call: 50
+        max_total: 200                         # across every attempt of the task
+        max_calls: 10
+        window_ms: 86400000                    # optional: make the totals rolling
 enforcement:
   advisory_checks: [evidence.freshness]       # shown, never blocks
 ```
 
 Unknown keys are rejected. Checks that guard the boundary itself can't be
-made advisory. The full commented template comes from `agentproof init`.
+made advisory. A call that breaks a tool constraint is refused with
+`TOOL_ARGS_INVALID` or `TOOL_LIMIT_EXCEEDED` before the tool runs, and each
+tool event in the receipt records the metered `amount` and the authority
+`consumed` so far. Usage is saved before the tool runs; if it can't be
+saved, the call doesn't happen. The MCP gateway issues one task per tool
+call, so behind it use `window_ms` to make `max_total` and `max_calls` hold
+across calls. The full commented template comes from `agentproof init`.
 
 ## Repository
 
@@ -262,7 +287,7 @@ docs/                     GETTING_STARTED, DESIGN, CRITIQUE, images
 ```
 
 ```bash
-npm test        # 136 tests
+npm test        # 197 tests
 npm run bench   # 20 claims, ~1 MB evidence, 1,000 runs → p95 ≈ 35 ms
 npm run build   # TypeScript project references → dist/
 ```
