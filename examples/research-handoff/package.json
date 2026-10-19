@@ -1,0 +1,14 @@
+{
+  "name": "@agentproof/example-research-handoff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Two-agent reference app: a researcher hands claims to a writer through an AgentProof gate.",
+  "scripts": {
+    "start": "node dist/run.js"
+  },
+  "dependencies": {
+    "@agentproof/core": "0.1.0",
+    "@agentproof/sdk": "0.1.0"
+  }
+}

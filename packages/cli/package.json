@@ -1,0 +1,17 @@
+{
+  "name": "@agentproof/cli",
+  "version": "0.1.0",
+  "description": "Local diagnostics and CI gate for AgentProof runs.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "agentproof": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@agentproof/core": "0.1.0",
+    "@agentproof/sdk": "0.1.0"
+  }
+}

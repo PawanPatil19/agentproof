@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
+agentproof-reports/
+examples/research-handoff/out/
+.DS_Store
