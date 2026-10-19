@@ -146,3 +146,47 @@ The local v1 slice (Phases 1–2 of the handoff), nothing hosted:
 | CLI: `inspect`, `check`, `report`, `init`, `policy validate`, `prune` | ✅ |
 | Two-agent reference example, fixture suite, benchmark | ✅ |
 | Semantic judge, MCP gateway, OTel export, hosted dashboard, Python SDK | ⏭ deferred |
+
+## Strategy update: what stronger models change (Oct 2026)
+
+A second critique asked the hard question: *why not let a strong agent check
+itself?* The honest answer splits the product in two.
+
+**What erodes as models improve**
+
+- *Catching fabricated citations.* Fabrication rates fall each generation,
+  and providers now return citations grounded in supplied documents at
+  generation time. Quote grounding stays as a cheap check, but it is no
+  longer the headline.
+- *The custom claims envelope.* Requiring agents to emit `output.claims` is
+  onboarding friction that providers' native citation formats remove.
+- *A standalone tool allowlist.* Agent platforms ship permission systems.
+
+**What does not erode — and grows with autonomy**
+
+- *Separation of duties.* Self-attestation is not evidence, however capable
+  the model. The checker must not share the checked agent's context, tools
+  or injected instructions.
+- *Enforcement outside the model.* A stronger model can still be
+  prompt-injected; a guard outside it is a wall, not a promise. As agents get
+  trusted with more consequential tools, one steered call costs more.
+- *Determinism and replay.* A receipt that gives the same verdict every replay,
+  under a versioned policy, is something an auditor or counterparty accepts.
+- *Handoffs between parties.* When your agent consumes another team's or
+  vendor's agent output, self-report is structurally untrustworthy.
+
+**Repositioning:** from "catches what your agent gets wrong" to **an
+independent acceptance gate and audit record for agent handoffs.**
+
+**Changes that follow from it**
+
+| Change | Why |
+| --- | --- |
+| Provider-citation adapters (`fromAnthropicMessage`, `fromCitedSegments`) | Consume native citations instead of demanding a custom envelope |
+| Independent semantic judge (opt-in) | Answers "does the claim follow from the quote?" without letting the agent grade itself: different prompt, no tools, only claim + excerpt |
+| Signed receipts (Ed25519) | A counterparty can verify a receipt without trusting the sender |
+| Deny-by-default tools when a registry exists | A security setting shouldn't default to open |
+
+The biggest remaining risk is platforms bundling a version of this, not
+models making it pointless. The defense is neutrality across providers and
+frameworks, which a platform's built-in version won't have.
