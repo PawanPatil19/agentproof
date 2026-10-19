@@ -1,0 +1,77 @@
+# Policy for the reference app. Same shape as `agentproof init`, but enforcing.
+api_version: agentproof/v1
+policy:
+  id: research-handoff
+  version: 1
+  description: A researcher hands quoted, sourced claims to a writer.
+
+mode: enforce
+
+privacy:
+  capture: hashes
+  retention_days: 7
+
+registry:
+  sources: [product-docs, changelog]
+  tools: [docs.search, docs.read, publish.post]
+
+checks:
+  evidence:
+    require_evidence_for_each_claim: true
+    require_quote: true
+    min_quote_chars: 12
+    allowed_source_ids: [product-docs, changelog]
+    max_source_age_days: 365
+  numeric:
+    relative_tolerance: 0.005
+
+final_answer:
+  output_schema:
+    type: object
+    required: [text, claims]
+    properties:
+      text: {type: string, minLength: 1}
+      claims: {type: array}
+
+contracts:
+  research_to_writer:
+    version: 1
+    coordinator: writer
+    worker: researcher
+    deadline_ms: 30000
+    allowed_tools: [docs.search, docs.read]
+    output_schema:
+      type: object
+      additionalProperties: false
+      required: [claims]
+      properties:
+        claims:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [text, evidence_ids, quote]
+            properties:
+              id: {type: string}
+              text: {type: string, minLength: 1}
+              quote: {type: string, minLength: 1}
+              evidence_ids:
+                type: array
+                minItems: 1
+                items: {type: string, minLength: 1}
+              value:
+                type: object
+                additionalProperties: false
+                required: [key, value]
+                properties:
+                  key: {type: string}
+                  value: {type: number}
+                  unit: {type: string}
+
+enforcement:
+  on_required_check_fail: block
+  on_required_check_unknown: review
+  on_verifier_error: block
+  advisory_checks: [evidence.freshness]
+  max_repair_attempts: 1
