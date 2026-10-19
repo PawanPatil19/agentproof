@@ -19,7 +19,7 @@ const RECEIPT_SCHEMA = {
     "output_sha256", "receipt_sha256",
   ],
   properties: {
-    receipt_version: { const: "agentproof.receipt/v1" },
+    receipt_version: { const: "agentproof.receipt/v2" },
     run_id: str,
     task_id: str,
     boundary: { enum: ["worker_completion", "final_answer"] },
@@ -59,8 +59,8 @@ const RECEIPT_SCHEMA = {
       type: "array",
       items: {
         type: "object",
-        required: ["id", "text_sha256", "evidence_ids", "status"],
-        properties: { id: str, text_sha256: str, text: { type: "string" }, evidence_ids: { type: "array", items: str }, status },
+        required: ["id", "text_commitment", "evidence_ids", "status"],
+        properties: { id: str, text_commitment: { type: "string", pattern: "^hmac-sha256:[0-9a-f]{64}$" }, text: { type: "string" }, evidence_ids: { type: "array", items: str }, status },
       },
     },
     evidence: { type: "array", items: { type: "object", required: ["id"], properties: { id: str, source_id: str, locator: str, content_sha256: str, published_at: str, revision: str } } },
@@ -74,6 +74,7 @@ const RECEIPT_SCHEMA = {
       type: "object",
       required: ["alg", "key_id", "value"],
       properties: { alg: { const: "ed25519" }, key_id: { type: "string", pattern: "^[0-9a-f]{16}$" }, value: { type: "string", maxLength: 200 } },
+      additionalProperties: false,
     },
   },
 };

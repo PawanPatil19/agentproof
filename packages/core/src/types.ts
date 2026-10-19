@@ -183,7 +183,12 @@ export interface Coverage {
 
 export interface ReceiptClaim {
   id: string;
-  text_sha256: string;
+  /**
+   * Salted commitment to the claim text: `hmac-sha256:<hex>`. The salt is
+   * kept by the issuer, so the text can't be guessed from the receipt but
+   * can be opened to a chosen auditor. See docs/RECEIPT_SPEC.md.
+   */
+  text_commitment: string;
   /** Only present when `privacy.capture` is `claims`. Redacted. */
   text?: string;
   evidence_ids: string[];
@@ -201,7 +206,7 @@ export interface ReceiptEvidence {
 }
 
 export interface Receipt {
-  receipt_version: "agentproof.receipt/v1";
+  receipt_version: "agentproof.receipt/v2";
   run_id: string;
   task_id?: string;
   boundary: Boundary;
@@ -235,6 +240,10 @@ export interface Receipt {
   output_sha256: string;
   /** sha256 of this receipt's canonical JSON, excluding this field and `signature`. */
   receipt_sha256: string;
-  /** Optional Ed25519 signature over `receipt_sha256`, proving who issued the receipt. */
+  /**
+   * Optional Ed25519 signature proving who issued the receipt. It is a DSSE
+   * signature over the receipt's in-toto Statement (see dsse.ts), so the
+   * receipt converts losslessly to a standard DSSE envelope and back.
+   */
   signature?: { alg: "ed25519"; key_id: string; value: string };
 }

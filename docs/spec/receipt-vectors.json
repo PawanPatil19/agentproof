@@ -1,0 +1,656 @@
+{
+  "description": "Conformance vectors for the AgentProof receipt format (docs/RECEIPT_SPEC.md). Regenerate with scripts/make-receipt-vectors.ts.",
+  "spec_version": "agentproof.receipt/v2",
+  "keys": {
+    "warning": "Published test keys (RFC 8032 §7.1 TEST 1). Never use them for real receipts.",
+    "ed25519_seed_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+    "ed25519_public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=\n-----END PUBLIC KEY-----\n",
+    "key_id": "06e3fd8fda29bb60",
+    "commitment_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+  },
+  "canonical_json": [
+    {
+      "name": "rfc8785-3.2.2",
+      "input_json": "{\"numbers\":[333333333.33333329,1E30,4.50,2e-3,0.000000000000000000000000001],\"string\":\"\\u20ac$\\u000F\\u000aA'\\u0042\\u0022\\u005c\\\\\\\"\\/\",\"literals\":[null,true,false]}",
+      "canonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\\\\\"/\"}",
+      "sha256": "2d5e01a318d0f0879ab568c4be289c8b1f64ef8921a53c6277d5e069978baacb"
+    },
+    {
+      "name": "key-order-utf16",
+      "input_json": "{\"\\u20ac\":1,\"\\r\":2,\"\\ufb33\":3,\"1\":4,\"\\ud83d\\ude00\":5,\"\\u0080\":6,\"\\u00f6\":7,\"\":8}",
+      "canonical": "{\"\":8,\"\\r\":2,\"1\":4,\"\":6,\"ö\":7,\"€\":1,\"😀\":5,\"דּ\":3}",
+      "sha256": "0bac5970d4315cae4e0c2a8588256f769e49e4af80127b5e1c5eb0bde9a4491c"
+    },
+    {
+      "name": "nested",
+      "input_json": "{\"b\":[{\"z\":0,\"a\":-0.0},1e21,1e-7],\"a\":{\"10\":\"x\",\"9\":\"y\"}}",
+      "canonical": "{\"a\":{\"10\":\"x\",\"9\":\"y\"},\"b\":[{\"a\":0,\"z\":0},1e+21,1e-7]}",
+      "sha256": "de8744a988a65fb025b5b9b4be2933c85baf79f6babac7954df43911cb9fe4b7"
+    }
+  ],
+  "claim_commitments": [
+    {
+      "run_id": "fx-valid",
+      "claim_id": "c1",
+      "text": "The Pro plan costs $12 per member per month.",
+      "salt": "c498c6d80be656ffde864f2c8064121341a8c495f00d48b68f022969d2670570",
+      "text_commitment": "hmac-sha256:f082e760ac4c95f1bf9f67f6a95ef8c19be5575a6502680e087a94102b30147e"
+    },
+    {
+      "run_id": "fx-valid",
+      "claim_id": "c2",
+      "text": "Revenue grew 12% in Q3.",
+      "salt": "2eac06cf215018a2178f9e45e250e681d2b773065d2b226f6f6b09083f694a57",
+      "text_commitment": "hmac-sha256:2fa346d3ab11e88cfc14f8e3c053b94b104a4dd4058130bb778e5ff6343f8d8e"
+    },
+    {
+      "run_id": "run-ünïcode",
+      "claim_id": "c-1",
+      "text": "Größe: 12 € 😀",
+      "salt": "92b8db446acadf2959d60f140eaef45171ba95d9e679c30c864aacf02a9fcc35",
+      "text_commitment": "hmac-sha256:c595cd8bbf184f2c7fde534883ca19f74a574bf94a757a5fa8f7b8cdbe38bfdf"
+    }
+  ],
+  "receipt": {
+    "unsigned_receipt": {
+      "receipt_version": "agentproof.receipt/v2",
+      "run_id": "fx-valid",
+      "task_id": "task-42",
+      "boundary": "worker_completion",
+      "created_at": "2026-10-19T12:00:00.000Z",
+      "duration_ms": 1.25,
+      "checker_version": "0.1.0",
+      "policy": {
+        "id": "research-handoff",
+        "version": 1,
+        "digest": "sha256:83203e4f5511d460c3b7454ca144fa32d57e37034bb2d52801590de85af12615"
+      },
+      "contract": {
+        "name": "research_to_writer",
+        "version": 1,
+        "digest": "sha256:ee106c9d1d038cada5b1cbb58dd9034b312c21d4db40caac302b63dc3be2bc0e",
+        "attempt_id": "att-0001",
+        "attempt": 1,
+        "worker": "agent://researcher-1",
+        "coordinator": "agent://writer-1"
+      },
+      "mode": "enforce",
+      "decision": "allow",
+      "evaluated_decision": "allow",
+      "reason_codes": [],
+      "coverage": {
+        "claims_total": 3,
+        "claims_with_evidence": 3,
+        "claims_passing": 3,
+        "checks": {
+          "pass": 21,
+          "fail": 0,
+          "unknown": 0,
+          "not_applicable": 0
+        },
+        "tool_events": 2
+      },
+      "checks": [
+        {
+          "check": "contract.binding",
+          "kind": "deterministic",
+          "target": "contract",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Accepted research_to_writer@1, attempt 1, digest pinned.",
+          "required": true
+        },
+        {
+          "check": "contract.deadline",
+          "kind": "deterministic",
+          "target": "contract",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Submitted 25000 ms before the deadline.",
+          "required": true
+        },
+        {
+          "check": "output.schema",
+          "kind": "deterministic",
+          "target": "output",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Output matches the declared schema.",
+          "required": true
+        },
+        {
+          "check": "output.claims",
+          "kind": "deterministic",
+          "target": "output",
+          "status": "pass",
+          "reason": "OK",
+          "message": "3 claims declared (minimum 1).",
+          "required": true
+        },
+        {
+          "check": "tools.permission",
+          "kind": "deterministic",
+          "target": "tool:docs.search",
+          "status": "pass",
+          "reason": "OK",
+          "message": "'docs.search' allowed; called 1 time.",
+          "required": true
+        },
+        {
+          "check": "tools.permission",
+          "kind": "deterministic",
+          "target": "tool:docs.read",
+          "status": "pass",
+          "reason": "OK",
+          "message": "'docs.read' allowed; called 1 time.",
+          "required": true
+        },
+        {
+          "check": "evidence.reference",
+          "kind": "deterministic",
+          "target": "claim:c1",
+          "status": "pass",
+          "reason": "OK",
+          "message": "1 evidence record resolved.",
+          "required": true
+        },
+        {
+          "check": "evidence.reference",
+          "kind": "deterministic",
+          "target": "claim:c2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "1 evidence record resolved.",
+          "required": true
+        },
+        {
+          "check": "evidence.reference",
+          "kind": "deterministic",
+          "target": "claim:c3",
+          "status": "pass",
+          "reason": "OK",
+          "message": "1 evidence record resolved.",
+          "required": true
+        },
+        {
+          "check": "evidence.quote",
+          "kind": "deterministic",
+          "target": "claim:c1",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Quote found verbatim in doc-changelog-3-2.",
+          "required": true
+        },
+        {
+          "check": "evidence.quote",
+          "kind": "deterministic",
+          "target": "claim:c2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Quote found verbatim in doc-capabilities.",
+          "required": true
+        },
+        {
+          "check": "evidence.quote",
+          "kind": "deterministic",
+          "target": "claim:c3",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Quote found verbatim in doc-changelog-3-2.",
+          "required": true
+        },
+        {
+          "check": "evidence.integrity",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Content matches its capture-time hash.",
+          "required": true
+        },
+        {
+          "check": "evidence.integrity",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Content matches its capture-time hash.",
+          "required": true
+        },
+        {
+          "check": "evidence.locator",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Locator is well-formed.",
+          "required": true
+        },
+        {
+          "check": "evidence.locator",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Locator is well-formed.",
+          "required": true
+        },
+        {
+          "check": "evidence.source",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Source 'product-docs' is allowed.",
+          "required": true
+        },
+        {
+          "check": "evidence.source",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Source 'changelog' is allowed.",
+          "required": true
+        },
+        {
+          "check": "evidence.freshness",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Published 66 days before submission (limit 365).",
+          "required": false
+        },
+        {
+          "check": "evidence.freshness",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Published 68 days before submission (limit 365).",
+          "required": false
+        },
+        {
+          "check": "numeric.fidelity",
+          "kind": "deterministic",
+          "target": "claim:c3",
+          "status": "pass",
+          "reason": "OK",
+          "message": "'pro_price' matches doc-changelog-3-2 within tolerance.",
+          "required": true
+        }
+      ],
+      "claims": [
+        {
+          "id": "c1",
+          "text_commitment": "hmac-sha256:39295102648e601929563e374abab520f513d713b85d70f46f0ac19e48241df0",
+          "evidence_ids": [
+            "doc-changelog-3-2"
+          ],
+          "status": "pass"
+        },
+        {
+          "id": "c2",
+          "text_commitment": "hmac-sha256:57c11edbcd99159ea5ba9079a4f27cdc256aa250d8e79608cf52bbd366e162fd",
+          "evidence_ids": [
+            "doc-capabilities"
+          ],
+          "status": "pass"
+        },
+        {
+          "id": "c3",
+          "text_commitment": "hmac-sha256:bc087fddeba09fec0221f9b2c3a14f7d32c98e7927809370477a0173f1da9799",
+          "evidence_ids": [
+            "doc-changelog-3-2"
+          ],
+          "status": "pass"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "doc-capabilities",
+          "source_id": "product-docs",
+          "locator": "https://docs.lumen.example/capabilities",
+          "content_sha256": "eccce4e5fa06997e4b1ac548325d72439dac4bdc8db45bd6ffeff7334d458e6b",
+          "published_at": "2026-08-14"
+        },
+        {
+          "id": "doc-changelog-3-2",
+          "source_id": "changelog",
+          "locator": "https://lumen.example/changelog/3.2",
+          "content_sha256": "11909b87d6b837fbb2b5cdfa79dc815b4621cc25a1ed582222ab42425b06b411",
+          "published_at": "2026-08-12"
+        }
+      ],
+      "tool_events": [
+        {
+          "tool": "docs.search",
+          "agent": "agent://researcher-1",
+          "at": "2026-10-19T10:00:02.000Z",
+          "outcome": "invoked"
+        },
+        {
+          "tool": "docs.read",
+          "agent": "agent://researcher-1",
+          "at": "2026-10-19T10:00:02.500Z",
+          "outcome": "invoked"
+        }
+      ],
+      "output_sha256": "ee2860871562291019aad5cdc714079cac74237709e07e3d05770ac483a073d5",
+      "receipt_sha256": "f5a85624d763192729a50302d69ff32779d5e4573e03eff3238bcaf36e220fed"
+    },
+    "receipt_sha256": "f5a85624d763192729a50302d69ff32779d5e4573e03eff3238bcaf36e220fed",
+    "statement_canonical": "{\"_type\":\"https://in-toto.io/Statement/v1\",\"predicate\":{\"boundary\":\"worker_completion\",\"checker_version\":\"0.1.0\",\"checks\":[{\"check\":\"contract.binding\",\"kind\":\"deterministic\",\"message\":\"Accepted research_to_writer@1, attempt 1, digest pinned.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"contract\"},{\"check\":\"contract.deadline\",\"kind\":\"deterministic\",\"message\":\"Submitted 25000 ms before the deadline.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"contract\"},{\"check\":\"output.schema\",\"kind\":\"deterministic\",\"message\":\"Output matches the declared schema.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"output\"},{\"check\":\"output.claims\",\"kind\":\"deterministic\",\"message\":\"3 claims declared (minimum 1).\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"output\"},{\"check\":\"tools.permission\",\"kind\":\"deterministic\",\"message\":\"'docs.search' allowed; called 1 time.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"tool:docs.search\"},{\"check\":\"tools.permission\",\"kind\":\"deterministic\",\"message\":\"'docs.read' allowed; called 1 time.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"tool:docs.read\"},{\"check\":\"evidence.reference\",\"kind\":\"deterministic\",\"message\":\"1 evidence record resolved.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"claim:c1\"},{\"check\":\"evidence.reference\",\"kind\":\"deterministic\",\"message\":\"1 evidence record resolved.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"claim:c2\"},{\"check\":\"evidence.reference\",\"kind\":\"deterministic\",\"message\":\"1 evidence record resolved.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"claim:c3\"},{\"check\":\"evidence.quote\",\"kind\":\"deterministic\",\"message\":\"Quote found verbatim in doc-changelog-3-2.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"claim:c1\"},{\"check\":\"evidence.quote\",\"kind\":\"deterministic\",\"message\":\"Quote found verbatim in doc-capabilities.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"claim:c2\"},{\"check\":\"evidence.quote\",\"kind\":\"deterministic\",\"message\":\"Quote found verbatim in doc-changelog-3-2.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"claim:c3\"},{\"check\":\"evidence.integrity\",\"kind\":\"deterministic\",\"message\":\"Content matches its capture-time hash.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"evidence:doc-capabilities\"},{\"check\":\"evidence.integrity\",\"kind\":\"deterministic\",\"message\":\"Content matches its capture-time hash.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"evidence:doc-changelog-3-2\"},{\"check\":\"evidence.locator\",\"kind\":\"deterministic\",\"message\":\"Locator is well-formed.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"evidence:doc-capabilities\"},{\"check\":\"evidence.locator\",\"kind\":\"deterministic\",\"message\":\"Locator is well-formed.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"evidence:doc-changelog-3-2\"},{\"check\":\"evidence.source\",\"kind\":\"deterministic\",\"message\":\"Source 'product-docs' is allowed.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"evidence:doc-capabilities\"},{\"check\":\"evidence.source\",\"kind\":\"deterministic\",\"message\":\"Source 'changelog' is allowed.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"evidence:doc-changelog-3-2\"},{\"check\":\"evidence.freshness\",\"kind\":\"deterministic\",\"message\":\"Published 66 days before submission (limit 365).\",\"reason\":\"OK\",\"required\":false,\"status\":\"pass\",\"target\":\"evidence:doc-capabilities\"},{\"check\":\"evidence.freshness\",\"kind\":\"deterministic\",\"message\":\"Published 68 days before submission (limit 365).\",\"reason\":\"OK\",\"required\":false,\"status\":\"pass\",\"target\":\"evidence:doc-changelog-3-2\"},{\"check\":\"numeric.fidelity\",\"kind\":\"deterministic\",\"message\":\"'pro_price' matches doc-changelog-3-2 within tolerance.\",\"reason\":\"OK\",\"required\":true,\"status\":\"pass\",\"target\":\"claim:c3\"}],\"claims\":[{\"evidence_ids\":[\"doc-changelog-3-2\"],\"id\":\"c1\",\"status\":\"pass\",\"text_commitment\":\"hmac-sha256:39295102648e601929563e374abab520f513d713b85d70f46f0ac19e48241df0\"},{\"evidence_ids\":[\"doc-capabilities\"],\"id\":\"c2\",\"status\":\"pass\",\"text_commitment\":\"hmac-sha256:57c11edbcd99159ea5ba9079a4f27cdc256aa250d8e79608cf52bbd366e162fd\"},{\"evidence_ids\":[\"doc-changelog-3-2\"],\"id\":\"c3\",\"status\":\"pass\",\"text_commitment\":\"hmac-sha256:bc087fddeba09fec0221f9b2c3a14f7d32c98e7927809370477a0173f1da9799\"}],\"contract\":{\"attempt\":1,\"attempt_id\":\"att-0001\",\"coordinator\":\"agent://writer-1\",\"digest\":\"sha256:ee106c9d1d038cada5b1cbb58dd9034b312c21d4db40caac302b63dc3be2bc0e\",\"name\":\"research_to_writer\",\"version\":1,\"worker\":\"agent://researcher-1\"},\"coverage\":{\"checks\":{\"fail\":0,\"not_applicable\":0,\"pass\":21,\"unknown\":0},\"claims_passing\":3,\"claims_total\":3,\"claims_with_evidence\":3,\"tool_events\":2},\"created_at\":\"2026-10-19T12:00:00.000Z\",\"decision\":\"allow\",\"duration_ms\":1.25,\"evaluated_decision\":\"allow\",\"evidence\":[{\"content_sha256\":\"eccce4e5fa06997e4b1ac548325d72439dac4bdc8db45bd6ffeff7334d458e6b\",\"id\":\"doc-capabilities\",\"locator\":\"https://docs.lumen.example/capabilities\",\"published_at\":\"2026-08-14\",\"source_id\":\"product-docs\"},{\"content_sha256\":\"11909b87d6b837fbb2b5cdfa79dc815b4621cc25a1ed582222ab42425b06b411\",\"id\":\"doc-changelog-3-2\",\"locator\":\"https://lumen.example/changelog/3.2\",\"published_at\":\"2026-08-12\",\"source_id\":\"changelog\"}],\"mode\":\"enforce\",\"output_sha256\":\"ee2860871562291019aad5cdc714079cac74237709e07e3d05770ac483a073d5\",\"policy\":{\"digest\":\"sha256:83203e4f5511d460c3b7454ca144fa32d57e37034bb2d52801590de85af12615\",\"id\":\"research-handoff\",\"version\":1},\"reason_codes\":[],\"receipt_sha256\":\"f5a85624d763192729a50302d69ff32779d5e4573e03eff3238bcaf36e220fed\",\"receipt_version\":\"agentproof.receipt/v2\",\"run_id\":\"fx-valid\",\"task_id\":\"task-42\",\"tool_events\":[{\"agent\":\"agent://researcher-1\",\"at\":\"2026-10-19T10:00:02.000Z\",\"outcome\":\"invoked\",\"tool\":\"docs.search\"},{\"agent\":\"agent://researcher-1\",\"at\":\"2026-10-19T10:00:02.500Z\",\"outcome\":\"invoked\",\"tool\":\"docs.read\"}]},\"predicateType\":\"https://agentproof.dev/receipt/v2\",\"subject\":[{\"digest\":{\"sha256\":\"ee2860871562291019aad5cdc714079cac74237709e07e3d05770ac483a073d5\"},\"name\":\"output\"}]}",
+    "pae_hex": "445353457631203238206170706c69636174696f6e2f766e642e696e2d746f746f2b6a736f6e2036303434207b225f74797065223a2268747470733a2f2f696e2d746f746f2e696f2f53746174656d656e742f7631222c22707265646963617465223a7b22626f756e64617279223a22776f726b65725f636f6d706c6574696f6e222c22636865636b65725f76657273696f6e223a22302e312e30222c22636865636b73223a5b7b22636865636b223a22636f6e74726163742e62696e64696e67222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a2241636365707465642072657365617263685f746f5f77726974657240312c20617474656d707420312c206469676573742070696e6e65642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636f6e7472616374227d2c7b22636865636b223a22636f6e74726163742e646561646c696e65222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a225375626d6974746564203235303030206d73206265666f72652074686520646561646c696e652e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636f6e7472616374227d2c7b22636865636b223a226f75747075742e736368656d61222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a224f7574707574206d61746368657320746865206465636c6172656420736368656d612e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a226f7574707574227d2c7b22636865636b223a226f75747075742e636c61696d73222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a223320636c61696d73206465636c6172656420286d696e696d756d2031292e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a226f7574707574227d2c7b22636865636b223a22746f6f6c732e7065726d697373696f6e222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a2227646f63732e7365617263682720616c6c6f7765643b2063616c6c656420312074696d652e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22746f6f6c3a646f63732e736561726368227d2c7b22636865636b223a22746f6f6c732e7065726d697373696f6e222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a2227646f63732e726561642720616c6c6f7765643b2063616c6c656420312074696d652e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22746f6f6c3a646f63732e72656164227d2c7b22636865636b223a2265766964656e63652e7265666572656e6365222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a22312065766964656e6365207265636f7264207265736f6c7665642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636c61696d3a6331227d2c7b22636865636b223a2265766964656e63652e7265666572656e6365222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a22312065766964656e6365207265636f7264207265736f6c7665642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636c61696d3a6332227d2c7b22636865636b223a2265766964656e63652e7265666572656e6365222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a22312065766964656e6365207265636f7264207265736f6c7665642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636c61696d3a6333227d2c7b22636865636b223a2265766964656e63652e71756f7465222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a2251756f746520666f756e6420766572626174696d20696e20646f632d6368616e67656c6f672d332d322e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636c61696d3a6331227d2c7b22636865636b223a2265766964656e63652e71756f7465222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a2251756f746520666f756e6420766572626174696d20696e20646f632d6361706162696c69746965732e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636c61696d3a6332227d2c7b22636865636b223a2265766964656e63652e71756f7465222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a2251756f746520666f756e6420766572626174696d20696e20646f632d6368616e67656c6f672d332d322e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636c61696d3a6333227d2c7b22636865636b223a2265766964656e63652e696e74656772697479222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a22436f6e74656e74206d6174636865732069747320636170747572652d74696d6520686173682e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6361706162696c6974696573227d2c7b22636865636b223a2265766964656e63652e696e74656772697479222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a22436f6e74656e74206d6174636865732069747320636170747572652d74696d6520686173682e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6368616e67656c6f672d332d32227d2c7b22636865636b223a2265766964656e63652e6c6f6361746f72222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a224c6f6361746f722069732077656c6c2d666f726d65642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6361706162696c6974696573227d2c7b22636865636b223a2265766964656e63652e6c6f6361746f72222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a224c6f6361746f722069732077656c6c2d666f726d65642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6368616e67656c6f672d332d32227d2c7b22636865636b223a2265766964656e63652e736f75726365222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a22536f75726365202770726f647563742d646f63732720697320616c6c6f7765642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6361706162696c6974696573227d2c7b22636865636b223a2265766964656e63652e736f75726365222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a22536f7572636520276368616e67656c6f672720697320616c6c6f7765642e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6368616e67656c6f672d332d32227d2c7b22636865636b223a2265766964656e63652e66726573686e657373222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a225075626c69736865642036362064617973206265666f7265207375626d697373696f6e20286c696d697420333635292e222c22726561736f6e223a224f4b222c227265717569726564223a66616c73652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6361706162696c6974696573227d2c7b22636865636b223a2265766964656e63652e66726573686e657373222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a225075626c69736865642036382064617973206265666f7265207375626d697373696f6e20286c696d697420333635292e222c22726561736f6e223a224f4b222c227265717569726564223a66616c73652c22737461747573223a2270617373222c22746172676574223a2265766964656e63653a646f632d6368616e67656c6f672d332d32227d2c7b22636865636b223a226e756d657269632e666964656c697479222c226b696e64223a2264657465726d696e6973746963222c226d657373616765223a222770726f5f707269636527206d61746368657320646f632d6368616e67656c6f672d332d322077697468696e20746f6c6572616e63652e222c22726561736f6e223a224f4b222c227265717569726564223a747275652c22737461747573223a2270617373222c22746172676574223a22636c61696d3a6333227d5d2c22636c61696d73223a5b7b2265766964656e63655f696473223a5b22646f632d6368616e67656c6f672d332d32225d2c226964223a226331222c22737461747573223a2270617373222c22746578745f636f6d6d69746d656e74223a22686d61632d7368613235363a33393239353130323634386536303139323935363365333734616261623532306635313364373133623835643730663436663061633139653438323431646630227d2c7b2265766964656e63655f696473223a5b22646f632d6361706162696c6974696573225d2c226964223a226332222c22737461747573223a2270617373222c22746578745f636f6d6d69746d656e74223a22686d61632d7368613235363a35376331316564626364393931353965613562613930373961346632376364633235366161323530643865373936303863663532626264333636653136326664227d2c7b2265766964656e63655f696473223a5b22646f632d6368616e67656c6f672d332d32225d2c226964223a226333222c22737461747573223a2270617373222c22746578745f636f6d6d69746d656e74223a22686d61632d7368613235363a62633038376664646562613039666563303232316639623263336131346637643332633938653739323738303933373034373761303137336631646139373939227d5d2c22636f6e7472616374223a7b22617474656d7074223a312c22617474656d70745f6964223a226174742d30303031222c22636f6f7264696e61746f72223a226167656e743a2f2f7772697465722d31222c22646967657374223a227368613235363a65653130366339643164303338636164613562316362623538646439303334623331326332316434646234306361616333303262363364633362653262633065222c226e616d65223a2272657365617263685f746f5f777269746572222c2276657273696f6e223a312c22776f726b6572223a226167656e743a2f2f726573656172636865722d31227d2c22636f766572616765223a7b22636865636b73223a7b226661696c223a302c226e6f745f6170706c696361626c65223a302c2270617373223a32312c22756e6b6e6f776e223a307d2c22636c61696d735f70617373696e67223a332c22636c61696d735f746f74616c223a332c22636c61696d735f776974685f65766964656e6365223a332c22746f6f6c5f6576656e7473223a327d2c22637265617465645f6174223a22323032362d31302d31395431323a30303a30302e3030305a222c226465636973696f6e223a22616c6c6f77222c226475726174696f6e5f6d73223a312e32352c226576616c75617465645f6465636973696f6e223a22616c6c6f77222c2265766964656e6365223a5b7b22636f6e74656e745f736861323536223a2265636363653465356661303639393765346231616335343833323564373234333964616334626463386462343562643666666566663733333464343538653662222c226964223a22646f632d6361706162696c6974696573222c226c6f6361746f72223a2268747470733a2f2f646f63732e6c756d656e2e6578616d706c652f6361706162696c6974696573222c227075626c69736865645f6174223a22323032362d30382d3134222c22736f757263655f6964223a2270726f647563742d646f6373227d2c7b22636f6e74656e745f736861323536223a2231313930396238376436623833376662623262356364666137396463383135623436323163633235613165643538323232326162343234323562303662343131222c226964223a22646f632d6368616e67656c6f672d332d32222c226c6f6361746f72223a2268747470733a2f2f6c756d656e2e6578616d706c652f6368616e67656c6f672f332e32222c227075626c69736865645f6174223a22323032362d30382d3132222c22736f757263655f6964223a226368616e67656c6f67227d5d2c226d6f6465223a22656e666f726365222c226f75747075745f736861323536223a2265653238363038373135363232393130313961616435636463373134303739636163373432333737303965303765336430353737306163343833613037336435222c22706f6c696379223a7b22646967657374223a227368613235363a38333230336534663535313164343630633362373435346361313434666133326435376533373033346262326435323830313539306465383561663132363135222c226964223a2272657365617263682d68616e646f6666222c2276657273696f6e223a317d2c22726561736f6e5f636f646573223a5b5d2c22726563656970745f736861323536223a2266356138353632346437363331393237323961353033303264363966663332373739643565343537336530336566663332333862636166333665323230666564222c22726563656970745f76657273696f6e223a226167656e7470726f6f662e726563656970742f7632222c2272756e5f6964223a2266782d76616c6964222c227461736b5f6964223a227461736b2d3432222c22746f6f6c5f6576656e7473223a5b7b226167656e74223a226167656e743a2f2f726573656172636865722d31222c226174223a22323032362d31302d31395431303a30303a30322e3030305a222c226f7574636f6d65223a22696e766f6b6564222c22746f6f6c223a22646f63732e736561726368227d2c7b226167656e74223a226167656e743a2f2f726573656172636865722d31222c226174223a22323032362d31302d31395431303a30303a30322e3530305a222c226f7574636f6d65223a22696e766f6b6564222c22746f6f6c223a22646f63732e72656164227d5d7d2c2270726564696361746554797065223a2268747470733a2f2f6167656e7470726f6f662e6465762f726563656970742f7632222c227375626a656374223a5b7b22646967657374223a7b22736861323536223a2265653238363038373135363232393130313961616435636463373134303739636163373432333737303965303765336430353737306163343833613037336435227d2c226e616d65223a226f7574707574227d5d7d",
+    "signature_b64": "yZAGnJ2zQpGtcD/YUgTDdOITrP8T7yzJCd2lngyFJi/BvrR45bFSkWz6A+1fBq9V1IDXk5Wf8NqAQhDbnb6JAQ==",
+    "signed_receipt": {
+      "receipt_version": "agentproof.receipt/v2",
+      "run_id": "fx-valid",
+      "task_id": "task-42",
+      "boundary": "worker_completion",
+      "created_at": "2026-10-19T12:00:00.000Z",
+      "duration_ms": 1.25,
+      "checker_version": "0.1.0",
+      "policy": {
+        "id": "research-handoff",
+        "version": 1,
+        "digest": "sha256:83203e4f5511d460c3b7454ca144fa32d57e37034bb2d52801590de85af12615"
+      },
+      "contract": {
+        "name": "research_to_writer",
+        "version": 1,
+        "digest": "sha256:ee106c9d1d038cada5b1cbb58dd9034b312c21d4db40caac302b63dc3be2bc0e",
+        "attempt_id": "att-0001",
+        "attempt": 1,
+        "worker": "agent://researcher-1",
+        "coordinator": "agent://writer-1"
+      },
+      "mode": "enforce",
+      "decision": "allow",
+      "evaluated_decision": "allow",
+      "reason_codes": [],
+      "coverage": {
+        "claims_total": 3,
+        "claims_with_evidence": 3,
+        "claims_passing": 3,
+        "checks": {
+          "pass": 21,
+          "fail": 0,
+          "unknown": 0,
+          "not_applicable": 0
+        },
+        "tool_events": 2
+      },
+      "checks": [
+        {
+          "check": "contract.binding",
+          "kind": "deterministic",
+          "target": "contract",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Accepted research_to_writer@1, attempt 1, digest pinned.",
+          "required": true
+        },
+        {
+          "check": "contract.deadline",
+          "kind": "deterministic",
+          "target": "contract",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Submitted 25000 ms before the deadline.",
+          "required": true
+        },
+        {
+          "check": "output.schema",
+          "kind": "deterministic",
+          "target": "output",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Output matches the declared schema.",
+          "required": true
+        },
+        {
+          "check": "output.claims",
+          "kind": "deterministic",
+          "target": "output",
+          "status": "pass",
+          "reason": "OK",
+          "message": "3 claims declared (minimum 1).",
+          "required": true
+        },
+        {
+          "check": "tools.permission",
+          "kind": "deterministic",
+          "target": "tool:docs.search",
+          "status": "pass",
+          "reason": "OK",
+          "message": "'docs.search' allowed; called 1 time.",
+          "required": true
+        },
+        {
+          "check": "tools.permission",
+          "kind": "deterministic",
+          "target": "tool:docs.read",
+          "status": "pass",
+          "reason": "OK",
+          "message": "'docs.read' allowed; called 1 time.",
+          "required": true
+        },
+        {
+          "check": "evidence.reference",
+          "kind": "deterministic",
+          "target": "claim:c1",
+          "status": "pass",
+          "reason": "OK",
+          "message": "1 evidence record resolved.",
+          "required": true
+        },
+        {
+          "check": "evidence.reference",
+          "kind": "deterministic",
+          "target": "claim:c2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "1 evidence record resolved.",
+          "required": true
+        },
+        {
+          "check": "evidence.reference",
+          "kind": "deterministic",
+          "target": "claim:c3",
+          "status": "pass",
+          "reason": "OK",
+          "message": "1 evidence record resolved.",
+          "required": true
+        },
+        {
+          "check": "evidence.quote",
+          "kind": "deterministic",
+          "target": "claim:c1",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Quote found verbatim in doc-changelog-3-2.",
+          "required": true
+        },
+        {
+          "check": "evidence.quote",
+          "kind": "deterministic",
+          "target": "claim:c2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Quote found verbatim in doc-capabilities.",
+          "required": true
+        },
+        {
+          "check": "evidence.quote",
+          "kind": "deterministic",
+          "target": "claim:c3",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Quote found verbatim in doc-changelog-3-2.",
+          "required": true
+        },
+        {
+          "check": "evidence.integrity",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Content matches its capture-time hash.",
+          "required": true
+        },
+        {
+          "check": "evidence.integrity",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Content matches its capture-time hash.",
+          "required": true
+        },
+        {
+          "check": "evidence.locator",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Locator is well-formed.",
+          "required": true
+        },
+        {
+          "check": "evidence.locator",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Locator is well-formed.",
+          "required": true
+        },
+        {
+          "check": "evidence.source",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Source 'product-docs' is allowed.",
+          "required": true
+        },
+        {
+          "check": "evidence.source",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Source 'changelog' is allowed.",
+          "required": true
+        },
+        {
+          "check": "evidence.freshness",
+          "kind": "deterministic",
+          "target": "evidence:doc-capabilities",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Published 66 days before submission (limit 365).",
+          "required": false
+        },
+        {
+          "check": "evidence.freshness",
+          "kind": "deterministic",
+          "target": "evidence:doc-changelog-3-2",
+          "status": "pass",
+          "reason": "OK",
+          "message": "Published 68 days before submission (limit 365).",
+          "required": false
+        },
+        {
+          "check": "numeric.fidelity",
+          "kind": "deterministic",
+          "target": "claim:c3",
+          "status": "pass",
+          "reason": "OK",
+          "message": "'pro_price' matches doc-changelog-3-2 within tolerance.",
+          "required": true
+        }
+      ],
+      "claims": [
+        {
+          "id": "c1",
+          "text_commitment": "hmac-sha256:39295102648e601929563e374abab520f513d713b85d70f46f0ac19e48241df0",
+          "evidence_ids": [
+            "doc-changelog-3-2"
+          ],
+          "status": "pass"
+        },
+        {
+          "id": "c2",
+          "text_commitment": "hmac-sha256:57c11edbcd99159ea5ba9079a4f27cdc256aa250d8e79608cf52bbd366e162fd",
+          "evidence_ids": [
+            "doc-capabilities"
+          ],
+          "status": "pass"
+        },
+        {
+          "id": "c3",
+          "text_commitment": "hmac-sha256:bc087fddeba09fec0221f9b2c3a14f7d32c98e7927809370477a0173f1da9799",
+          "evidence_ids": [
+            "doc-changelog-3-2"
+          ],
+          "status": "pass"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "doc-capabilities",
+          "source_id": "product-docs",
+          "locator": "https://docs.lumen.example/capabilities",
+          "content_sha256": "eccce4e5fa06997e4b1ac548325d72439dac4bdc8db45bd6ffeff7334d458e6b",
+          "published_at": "2026-08-14"
+        },
+        {
+          "id": "doc-changelog-3-2",
+          "source_id": "changelog",
+          "locator": "https://lumen.example/changelog/3.2",
+          "content_sha256": "11909b87d6b837fbb2b5cdfa79dc815b4621cc25a1ed582222ab42425b06b411",
+          "published_at": "2026-08-12"
+        }
+      ],
+      "tool_events": [
+        {
+          "tool": "docs.search",
+          "agent": "agent://researcher-1",
+          "at": "2026-10-19T10:00:02.000Z",
+          "outcome": "invoked"
+        },
+        {
+          "tool": "docs.read",
+          "agent": "agent://researcher-1",
+          "at": "2026-10-19T10:00:02.500Z",
+          "outcome": "invoked"
+        }
+      ],
+      "output_sha256": "ee2860871562291019aad5cdc714079cac74237709e07e3d05770ac483a073d5",
+      "receipt_sha256": "f5a85624d763192729a50302d69ff32779d5e4573e03eff3238bcaf36e220fed",
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "06e3fd8fda29bb60",
+        "value": "yZAGnJ2zQpGtcD/YUgTDdOITrP8T7yzJCd2lngyFJi/BvrR45bFSkWz6A+1fBq9V1IDXk5Wf8NqAQhDbnb6JAQ=="
+      }
+    },
+    "dsse_envelope": {
+      "payloadType": "application/vnd.in-toto+json",
+      "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYm91bmRhcnkiOiJ3b3JrZXJfY29tcGxldGlvbiIsImNoZWNrZXJfdmVyc2lvbiI6IjAuMS4wIiwiY2hlY2tzIjpbeyJjaGVjayI6ImNvbnRyYWN0LmJpbmRpbmciLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiJBY2NlcHRlZCByZXNlYXJjaF90b193cml0ZXJAMSwgYXR0ZW1wdCAxLCBkaWdlc3QgcGlubmVkLiIsInJlYXNvbiI6Ik9LIiwicmVxdWlyZWQiOnRydWUsInN0YXR1cyI6InBhc3MiLCJ0YXJnZXQiOiJjb250cmFjdCJ9LHsiY2hlY2siOiJjb250cmFjdC5kZWFkbGluZSIsImtpbmQiOiJkZXRlcm1pbmlzdGljIiwibWVzc2FnZSI6IlN1Ym1pdHRlZCAyNTAwMCBtcyBiZWZvcmUgdGhlIGRlYWRsaW5lLiIsInJlYXNvbiI6Ik9LIiwicmVxdWlyZWQiOnRydWUsInN0YXR1cyI6InBhc3MiLCJ0YXJnZXQiOiJjb250cmFjdCJ9LHsiY2hlY2siOiJvdXRwdXQuc2NoZW1hIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiT3V0cHV0IG1hdGNoZXMgdGhlIGRlY2xhcmVkIHNjaGVtYS4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0Ijoib3V0cHV0In0seyJjaGVjayI6Im91dHB1dC5jbGFpbXMiLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiIzIGNsYWltcyBkZWNsYXJlZCAobWluaW11bSAxKS4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0Ijoib3V0cHV0In0seyJjaGVjayI6InRvb2xzLnBlcm1pc3Npb24iLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiInZG9jcy5zZWFyY2gnIGFsbG93ZWQ7IGNhbGxlZCAxIHRpbWUuIiwicmVhc29uIjoiT0siLCJyZXF1aXJlZCI6dHJ1ZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6InRvb2w6ZG9jcy5zZWFyY2gifSx7ImNoZWNrIjoidG9vbHMucGVybWlzc2lvbiIsImtpbmQiOiJkZXRlcm1pbmlzdGljIiwibWVzc2FnZSI6Iidkb2NzLnJlYWQnIGFsbG93ZWQ7IGNhbGxlZCAxIHRpbWUuIiwicmVhc29uIjoiT0siLCJyZXF1aXJlZCI6dHJ1ZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6InRvb2w6ZG9jcy5yZWFkIn0seyJjaGVjayI6ImV2aWRlbmNlLnJlZmVyZW5jZSIsImtpbmQiOiJkZXRlcm1pbmlzdGljIiwibWVzc2FnZSI6IjEgZXZpZGVuY2UgcmVjb3JkIHJlc29sdmVkLiIsInJlYXNvbiI6Ik9LIiwicmVxdWlyZWQiOnRydWUsInN0YXR1cyI6InBhc3MiLCJ0YXJnZXQiOiJjbGFpbTpjMSJ9LHsiY2hlY2siOiJldmlkZW5jZS5yZWZlcmVuY2UiLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiIxIGV2aWRlbmNlIHJlY29yZCByZXNvbHZlZC4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0IjoiY2xhaW06YzIifSx7ImNoZWNrIjoiZXZpZGVuY2UucmVmZXJlbmNlIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiMSBldmlkZW5jZSByZWNvcmQgcmVzb2x2ZWQuIiwicmVhc29uIjoiT0siLCJyZXF1aXJlZCI6dHJ1ZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6ImNsYWltOmMzIn0seyJjaGVjayI6ImV2aWRlbmNlLnF1b3RlIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiUXVvdGUgZm91bmQgdmVyYmF0aW0gaW4gZG9jLWNoYW5nZWxvZy0zLTIuIiwicmVhc29uIjoiT0siLCJyZXF1aXJlZCI6dHJ1ZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6ImNsYWltOmMxIn0seyJjaGVjayI6ImV2aWRlbmNlLnF1b3RlIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiUXVvdGUgZm91bmQgdmVyYmF0aW0gaW4gZG9jLWNhcGFiaWxpdGllcy4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0IjoiY2xhaW06YzIifSx7ImNoZWNrIjoiZXZpZGVuY2UucXVvdGUiLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiJRdW90ZSBmb3VuZCB2ZXJiYXRpbSBpbiBkb2MtY2hhbmdlbG9nLTMtMi4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0IjoiY2xhaW06YzMifSx7ImNoZWNrIjoiZXZpZGVuY2UuaW50ZWdyaXR5Iiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiQ29udGVudCBtYXRjaGVzIGl0cyBjYXB0dXJlLXRpbWUgaGFzaC4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0IjoiZXZpZGVuY2U6ZG9jLWNhcGFiaWxpdGllcyJ9LHsiY2hlY2siOiJldmlkZW5jZS5pbnRlZ3JpdHkiLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiJDb250ZW50IG1hdGNoZXMgaXRzIGNhcHR1cmUtdGltZSBoYXNoLiIsInJlYXNvbiI6Ik9LIiwicmVxdWlyZWQiOnRydWUsInN0YXR1cyI6InBhc3MiLCJ0YXJnZXQiOiJldmlkZW5jZTpkb2MtY2hhbmdlbG9nLTMtMiJ9LHsiY2hlY2siOiJldmlkZW5jZS5sb2NhdG9yIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiTG9jYXRvciBpcyB3ZWxsLWZvcm1lZC4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0IjoiZXZpZGVuY2U6ZG9jLWNhcGFiaWxpdGllcyJ9LHsiY2hlY2siOiJldmlkZW5jZS5sb2NhdG9yIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiTG9jYXRvciBpcyB3ZWxsLWZvcm1lZC4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjp0cnVlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0IjoiZXZpZGVuY2U6ZG9jLWNoYW5nZWxvZy0zLTIifSx7ImNoZWNrIjoiZXZpZGVuY2Uuc291cmNlIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiU291cmNlICdwcm9kdWN0LWRvY3MnIGlzIGFsbG93ZWQuIiwicmVhc29uIjoiT0siLCJyZXF1aXJlZCI6dHJ1ZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6ImV2aWRlbmNlOmRvYy1jYXBhYmlsaXRpZXMifSx7ImNoZWNrIjoiZXZpZGVuY2Uuc291cmNlIiwia2luZCI6ImRldGVybWluaXN0aWMiLCJtZXNzYWdlIjoiU291cmNlICdjaGFuZ2Vsb2cnIGlzIGFsbG93ZWQuIiwicmVhc29uIjoiT0siLCJyZXF1aXJlZCI6dHJ1ZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6ImV2aWRlbmNlOmRvYy1jaGFuZ2Vsb2ctMy0yIn0seyJjaGVjayI6ImV2aWRlbmNlLmZyZXNobmVzcyIsImtpbmQiOiJkZXRlcm1pbmlzdGljIiwibWVzc2FnZSI6IlB1Ymxpc2hlZCA2NiBkYXlzIGJlZm9yZSBzdWJtaXNzaW9uIChsaW1pdCAzNjUpLiIsInJlYXNvbiI6Ik9LIiwicmVxdWlyZWQiOmZhbHNlLCJzdGF0dXMiOiJwYXNzIiwidGFyZ2V0IjoiZXZpZGVuY2U6ZG9jLWNhcGFiaWxpdGllcyJ9LHsiY2hlY2siOiJldmlkZW5jZS5mcmVzaG5lc3MiLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiJQdWJsaXNoZWQgNjggZGF5cyBiZWZvcmUgc3VibWlzc2lvbiAobGltaXQgMzY1KS4iLCJyZWFzb24iOiJPSyIsInJlcXVpcmVkIjpmYWxzZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6ImV2aWRlbmNlOmRvYy1jaGFuZ2Vsb2ctMy0yIn0seyJjaGVjayI6Im51bWVyaWMuZmlkZWxpdHkiLCJraW5kIjoiZGV0ZXJtaW5pc3RpYyIsIm1lc3NhZ2UiOiIncHJvX3ByaWNlJyBtYXRjaGVzIGRvYy1jaGFuZ2Vsb2ctMy0yIHdpdGhpbiB0b2xlcmFuY2UuIiwicmVhc29uIjoiT0siLCJyZXF1aXJlZCI6dHJ1ZSwic3RhdHVzIjoicGFzcyIsInRhcmdldCI6ImNsYWltOmMzIn1dLCJjbGFpbXMiOlt7ImV2aWRlbmNlX2lkcyI6WyJkb2MtY2hhbmdlbG9nLTMtMiJdLCJpZCI6ImMxIiwic3RhdHVzIjoicGFzcyIsInRleHRfY29tbWl0bWVudCI6ImhtYWMtc2hhMjU2OjM5Mjk1MTAyNjQ4ZTYwMTkyOTU2M2UzNzRhYmFiNTIwZjUxM2Q3MTNiODVkNzBmNDZmMGFjMTllNDgyNDFkZjAifSx7ImV2aWRlbmNlX2lkcyI6WyJkb2MtY2FwYWJpbGl0aWVzIl0sImlkIjoiYzIiLCJzdGF0dXMiOiJwYXNzIiwidGV4dF9jb21taXRtZW50IjoiaG1hYy1zaGEyNTY6NTdjMTFlZGJjZDk5MTU5ZWE1YmE5MDc5YTRmMjdjZGMyNTZhYTI1MGQ4ZTc5NjA4Y2Y1MmJiZDM2NmUxNjJmZCJ9LHsiZXZpZGVuY2VfaWRzIjpbImRvYy1jaGFuZ2Vsb2ctMy0yIl0sImlkIjoiYzMiLCJzdGF0dXMiOiJwYXNzIiwidGV4dF9jb21taXRtZW50IjoiaG1hYy1zaGEyNTY6YmMwODdmZGRlYmEwOWZlYzAyMjFmOWIyYzNhMTRmN2QzMmM5OGU3OTI3ODA5MzcwNDc3YTAxNzNmMWRhOTc5OSJ9XSwiY29udHJhY3QiOnsiYXR0ZW1wdCI6MSwiYXR0ZW1wdF9pZCI6ImF0dC0wMDAxIiwiY29vcmRpbmF0b3IiOiJhZ2VudDovL3dyaXRlci0xIiwiZGlnZXN0Ijoic2hhMjU2OmVlMTA2YzlkMWQwMzhjYWRhNWIxY2JiNThkZDkwMzRiMzEyYzIxZDRkYjQwY2FhYzMwMmI2M2RjM2JlMmJjMGUiLCJuYW1lIjoicmVzZWFyY2hfdG9fd3JpdGVyIiwidmVyc2lvbiI6MSwid29ya2VyIjoiYWdlbnQ6Ly9yZXNlYXJjaGVyLTEifSwiY292ZXJhZ2UiOnsiY2hlY2tzIjp7ImZhaWwiOjAsIm5vdF9hcHBsaWNhYmxlIjowLCJwYXNzIjoyMSwidW5rbm93biI6MH0sImNsYWltc19wYXNzaW5nIjozLCJjbGFpbXNfdG90YWwiOjMsImNsYWltc193aXRoX2V2aWRlbmNlIjozLCJ0b29sX2V2ZW50cyI6Mn0sImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTE5VDEyOjAwOjAwLjAwMFoiLCJkZWNpc2lvbiI6ImFsbG93IiwiZHVyYXRpb25fbXMiOjEuMjUsImV2YWx1YXRlZF9kZWNpc2lvbiI6ImFsbG93IiwiZXZpZGVuY2UiOlt7ImNvbnRlbnRfc2hhMjU2IjoiZWNjY2U0ZTVmYTA2OTk3ZTRiMWFjNTQ4MzI1ZDcyNDM5ZGFjNGJkYzhkYjQ1YmQ2ZmZlZmY3MzM0ZDQ1OGU2YiIsImlkIjoiZG9jLWNhcGFiaWxpdGllcyIsImxvY2F0b3IiOiJodHRwczovL2RvY3MubHVtZW4uZXhhbXBsZS9jYXBhYmlsaXRpZXMiLCJwdWJsaXNoZWRfYXQiOiIyMDI2LTA4LTE0Iiwic291cmNlX2lkIjoicHJvZHVjdC1kb2NzIn0seyJjb250ZW50X3NoYTI1NiI6IjExOTA5Yjg3ZDZiODM3ZmJiMmI1Y2RmYTc5ZGM4MTViNDYyMWNjMjVhMWVkNTgyMjIyYWI0MjQyNWIwNmI0MTEiLCJpZCI6ImRvYy1jaGFuZ2Vsb2ctMy0yIiwibG9jYXRvciI6Imh0dHBzOi8vbHVtZW4uZXhhbXBsZS9jaGFuZ2Vsb2cvMy4yIiwicHVibGlzaGVkX2F0IjoiMjAyNi0wOC0xMiIsInNvdXJjZV9pZCI6ImNoYW5nZWxvZyJ9XSwibW9kZSI6ImVuZm9yY2UiLCJvdXRwdXRfc2hhMjU2IjoiZWUyODYwODcxNTYyMjkxMDE5YWFkNWNkYzcxNDA3OWNhYzc0MjM3NzA5ZTA3ZTNkMDU3NzBhYzQ4M2EwNzNkNSIsInBvbGljeSI6eyJkaWdlc3QiOiJzaGEyNTY6ODMyMDNlNGY1NTExZDQ2MGMzYjc0NTRjYTE0NGZhMzJkNTdlMzcwMzRiYjJkNTI4MDE1OTBkZTg1YWYxMjYxNSIsImlkIjoicmVzZWFyY2gtaGFuZG9mZiIsInZlcnNpb24iOjF9LCJyZWFzb25fY29kZXMiOltdLCJyZWNlaXB0X3NoYTI1NiI6ImY1YTg1NjI0ZDc2MzE5MjcyOWE1MDMwMmQ2OWZmMzI3NzlkNWU0NTczZTAzZWZmMzIzOGJjYWYzNmUyMjBmZWQiLCJyZWNlaXB0X3ZlcnNpb24iOiJhZ2VudHByb29mLnJlY2VpcHQvdjIiLCJydW5faWQiOiJmeC12YWxpZCIsInRhc2tfaWQiOiJ0YXNrLTQyIiwidG9vbF9ldmVudHMiOlt7ImFnZW50IjoiYWdlbnQ6Ly9yZXNlYXJjaGVyLTEiLCJhdCI6IjIwMjYtMTAtMTlUMTA6MDA6MDIuMDAwWiIsIm91dGNvbWUiOiJpbnZva2VkIiwidG9vbCI6ImRvY3Muc2VhcmNoIn0seyJhZ2VudCI6ImFnZW50Oi8vcmVzZWFyY2hlci0xIiwiYXQiOiIyMDI2LTEwLTE5VDEwOjAwOjAyLjUwMFoiLCJvdXRjb21lIjoiaW52b2tlZCIsInRvb2wiOiJkb2NzLnJlYWQifV19LCJwcmVkaWNhdGVUeXBlIjoiaHR0cHM6Ly9hZ2VudHByb29mLmRldi9yZWNlaXB0L3YyIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7InNoYTI1NiI6ImVlMjg2MDg3MTU2MjI5MTAxOWFhZDVjZGM3MTQwNzljYWM3NDIzNzcwOWUwN2UzZDA1NzcwYWM0ODNhMDczZDUifSwibmFtZSI6Im91dHB1dCJ9XX0=",
+      "signatures": [
+        {
+          "keyid": "06e3fd8fda29bb60",
+          "sig": "yZAGnJ2zQpGtcD/YUgTDdOITrP8T7yzJCd2lngyFJi/BvrR45bFSkWz6A+1fBq9V1IDXk5Wf8NqAQhDbnb6JAQ=="
+        }
+      ]
+    },
+    "disclosure": {
+      "claim_id": "c1",
+      "salt": "c498c6d80be656ffde864f2c8064121341a8c495f00d48b68f022969d2670570",
+      "text": "Offline sync is generally available as of version 3.2."
+    }
+  }
+}

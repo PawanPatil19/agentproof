@@ -92,7 +92,7 @@ export function renderReport(receipt: Receipt, options: ReportOptions = {}): str
   <summary>
     ${pill(claim.status)}
     <span class="claim-id">${esc(claim.id)}</span>
-    <span class="claim-text">${body !== undefined ? esc(body) : `<span class="muted">text not captured · sha256 ${short(claim.text_sha256)}</span>`}</span>
+    <span class="claim-text">${body !== undefined ? esc(body) : `<span class="muted">text not captured · commitment ${short(claim.text_commitment.replace(/^hmac-sha256:/, ""))}</span>`}</span>
   </summary>
   <div class="claim-body">
     ${t?.quote ? `<blockquote>${esc(t.quote)}</blockquote>` : ""}

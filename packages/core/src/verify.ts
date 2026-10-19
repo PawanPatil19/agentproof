@@ -8,6 +8,7 @@ import { CHECKS, type CheckContext, type RawResult } from "./checks/index.ts";
 import { markRequired } from "./decide.ts";
 import { parseEnvelope } from "./envelope.ts";
 import { buildReceipt } from "./receipt.ts";
+import type { CommitmentKey } from "./commitment.ts";
 import { judgeMissing } from "./semantics.ts";
 
 export interface VerifyOptions {
@@ -18,6 +19,8 @@ export interface VerifyOptions {
   now?: () => Date;
   /** Results produced outside the engine, e.g. SDK lifecycle checks. */
   extraResults?: RawResult[];
+  /** Secret for salted claim commitments; keep it to open claims to an auditor later. */
+  commitmentKey?: CommitmentKey;
 }
 
 export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
@@ -31,7 +34,7 @@ export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
     const results = markRequired([{ check: "envelope.structure", kind: "deterministic", target: "envelope", status, reason, message }], policy);
     return buildReceipt({
       runId, boundary: "final_answer", policy, mode, results, claims: [], evidence: [], toolEvents: [],
-      output: null, createdAt: now(), durationMs: performance.now() - started,
+      output: null, createdAt: now(), durationMs: performance.now() - started, commitmentKey: options.commitmentKey,
     });
   };
 
@@ -77,6 +80,7 @@ export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
     runId: envelope.run_id, taskId: envelope.task_id, boundary, policy, mode, results, claims,
     evidence: envelope.evidence ?? [], toolEvents: envelope.tool_events ?? [], contract: envelope.contract,
     output: envelope.output, createdAt: now(), durationMs: performance.now() - started,
+    commitmentKey: options.commitmentKey,
   });
 }
 

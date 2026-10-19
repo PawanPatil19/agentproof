@@ -23,7 +23,8 @@ import type { CompiledPolicy } from "./policy/compile.ts";
 import type { ResolvedClaim } from "./checks/context.ts";
 import { decide } from "./decide.ts";
 import { canonicalJson, sha256 } from "./util/hash.ts";
-import { redact, safeText, sanitizeLocator } from "./util/text.ts";
+import { claimSalt, commitClaimText, generateCommitmentKey, type CommitmentKey } from "./commitment.ts";
+import { redact, safeText, sanitizeLocator, wellFormed } from "./util/text.ts";
 import { CHECKER_VERSION, RECEIPT_VERSION } from "./version.ts";
 
 export interface ReceiptInput {
@@ -40,6 +41,12 @@ export interface ReceiptInput {
   output: unknown;
   createdAt: Date;
   durationMs: number;
+  /**
+   * Secret key from which per-claim salts are derived (see commitment.ts).
+   * Keep it to open claims to an auditor later; omitted, a random key is
+   * used and the claim commitments can never be opened.
+   */
+  commitmentKey?: CommitmentKey;
 }
 
 /** Fold per-claim results into one status: fail > unknown > pass > not_applicable. */
@@ -71,16 +78,21 @@ export function buildReceipt(input: ReceiptInput): Receipt {
   const { policy, results } = input;
   const { decision: evaluated, reasons } = decide(results, policy);
   const includeText = policy.privacy.capture === "claims";
+  const commitmentKey = input.commitmentKey ?? generateCommitmentKey();
 
   // Everything below that the agent controls is redacted and capped: IDs,
   // messages and targets can carry secrets as easily as claim text can.
-  const claims: ReceiptClaim[] = input.claims.map((c) => ({
-    id: safeText(c.id, 128),
-    text_sha256: sha256(c.text),
-    ...(includeText ? { text: redact(c.text) } : {}),
-    evidence_ids: c.evidence_ids.map((id) => safeText(id, 128)),
-    status: claimStatus(c.id, results),
-  }));
+  const claims: ReceiptClaim[] = input.claims.map((c) => {
+    const id = safeText(c.id, 128);
+    return {
+      id,
+      // Salted, so a short claim can't be confirmed by hashing guesses.
+      text_commitment: commitClaimText(claimSalt(commitmentKey, input.runId, id), c.text),
+      ...(includeText ? { text: wellFormed(redact(c.text)) } : {}),
+      evidence_ids: c.evidence_ids.map((e) => safeText(e, 128)),
+      status: claimStatus(c.id, results),
+    };
+  });
 
   const evidence: ReceiptEvidence[] = input.evidence.map((e) => ({
     id: safeText(e.id, 128),

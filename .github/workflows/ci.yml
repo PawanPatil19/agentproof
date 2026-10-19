@@ -25,6 +25,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - name: Receipt vectors verify without TypeScript
+        run: python3 docs/spec/verify_vectors.py
       - name: Demo runs end to end
         run: npm run demo
       - name: Benchmark (A07 target p95 ≤ 100 ms)

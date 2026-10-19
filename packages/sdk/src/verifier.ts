@@ -22,6 +22,7 @@ import {
   signReceipt,
   verifyRun,
   type CheckResult,
+  type CommitmentKey,
   type CompiledPolicy,
   type ContractInstance,
   type EvidenceRecord,
@@ -59,6 +60,12 @@ export interface VerifierOptions {
   judge?: Judge;
   /** Ed25519 private key (PKCS#8 PEM). When set, every receipt is signed before it is stored. */
   signingKeyPem?: string;
+  /**
+   * Secret from which per-claim salts are derived (see `generateCommitmentKey`).
+   * Keep it to open a claim to an auditor later with `discloseClaim`. Omitted,
+   * each receipt uses a random key and claims can't be opened.
+   */
+  commitmentKey?: CommitmentKey;
   /** Where receipts go. `false` disables persistence (tests, ephemeral runs). */
   store?: ReceiptStore | false;
   now?: () => Date;
@@ -104,6 +111,7 @@ export class Verifier {
   private readonly identities?: Record<string, string[]>;
   private readonly judge?: Judge;
   private readonly signingKeyPem?: string;
+  private readonly commitmentKey?: CommitmentKey;
   private readonly now: () => Date;
   private readonly newId: () => string;
   private readonly ledger = new ContractLedger();
@@ -118,6 +126,7 @@ export class Verifier {
     this.identities = options.identities;
     this.judge = options.judge;
     this.signingKeyPem = options.signingKeyPem;
+    this.commitmentKey = options.commitmentKey;
     this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? (() => randomUUID().replace(/-/g, "").slice(0, 16));
   }
@@ -249,7 +258,7 @@ export class Verifier {
       submitted_at: this.now().toISOString(),
     };
     extra.push(...(await this.judged(envelope)));
-    const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra }));
+    const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra, commitmentKey: this.commitmentKey }));
     // Only settle an attempt that is still ours to settle.
     if (entry && firstSubmission && entry.state === "submitted") entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
     return receipt;
@@ -269,7 +278,7 @@ export class Verifier {
       submitted_at: this.now().toISOString(),
     };
     const extraResults = await this.judged(envelope);
-    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults }));
+    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults, commitmentKey: this.commitmentKey }));
   }
 
   // ── Review ─────────────────────────────────────────────────────────────────

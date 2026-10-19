@@ -26,9 +26,40 @@ export { BASELINE_POLICY, RESEARCH_HANDOFF_TEMPLATE, TEMPLATES, baselinePolicy, 
 export { contractInstanceDigest, type ContractTerms } from "./contract.ts";
 export { CHECK_IDS, INTEGRITY_CHECKS, isCheckId, type CheckId, type RawResult } from "./checks/index.ts";
 export { canonicalJson, digestOf, sha256 } from "./util/hash.ts";
-export { classifyLocator, normalizeForMatch, redact, safeText, sanitizeLocator } from "./util/text.ts";
+export { classifyLocator, normalizeForMatch, redact, safeText, sanitizeLocator, wellFormed } from "./util/text.ts";
 export { excerptFor, judgeClaims, type Judge, type JudgeInput, type JudgeResult, type JudgeVerdict } from "./semantics.ts";
-export { generateSigningKey, keyIdOf, signReceipt, verifyReceiptSignature, type SignatureCheck, type SigningKeyPair } from "./signing.ts";
+export {
+  DSSE_PAYLOAD_TYPE,
+  IN_TOTO_STATEMENT_TYPE,
+  RECEIPT_PREDICATE_TYPE,
+  fromDsseEnvelope,
+  generateSigningKey,
+  isDsseEnvelope,
+  keyIdOf,
+  preAuthEncoding,
+  receiptPayload,
+  receiptStatement,
+  signReceipt,
+  toDsseEnvelope,
+  verifyReceiptSignature,
+  type DsseEnvelope,
+  type EnvelopeParse as DsseEnvelopeParse,
+  type InTotoStatement,
+  type SignatureCheck,
+  type SignatureFailure,
+  type SigningKeyPair,
+} from "./signing.ts";
+export {
+  COMMITMENT_PREFIX,
+  claimSalt,
+  commitClaimText,
+  commitmentKeyBytes,
+  discloseClaim,
+  generateCommitmentKey,
+  verifyClaimDisclosure,
+  type ClaimDisclosure,
+  type CommitmentKey,
+} from "./commitment.ts";
 export { renderReport, type ClaimText, type ReportOptions } from "./report/html.ts";
 export { REASON_TEXT } from "./report/reasons.ts";
 export { parseReceipt, type ReceiptParse } from "./report/schema.ts";
