@@ -101,13 +101,35 @@ All checks are deterministic except `claims.support`, which is marked
 
 ## Provider adapters
 
-`fromAnthropicMessage(response, documents)` and the provider-neutral
+`fromAnthropicMessage(response, documents)`,
+`fromOpenAIResponse(response, sources)` and the provider-neutral
 `fromCitedSegments(segments, sources)` turn native citations into claims and
-evidence. One claim per citation; the provider's `cited_text` becomes the
-claim's quote; evidence content comes only from what the host supplied.
-A citation to an index the host never supplied stays unresolved and fails
+evidence. Each citation becomes one claim, and evidence content comes only
+from what the host supplied, never from model output. A citation to a
+source the host never supplied stays unresolved and fails
 `evidence.reference`. Web-search citations carry no host-captured content,
 so their quotes are inconclusive (review) until the host captures the page.
+
+Anthropic citations include `cited_text`, which becomes the claim's quote.
+OpenAI annotations (`url_citation`, `file_citation`) mark only positions in
+the answer. The adapter reads them by structure, with no SDK dependency, and
+splits each `output_text` into segments at the annotation spans. A
+`file_citation` marks a single `index`, so its span is the sentence that ends
+there. That span becomes the quote only when it reads like an excerpt: at
+least two words, not a link, a URL or a bracketed marker. Otherwise the quote
+is left undefined and `evidence.require_quote` decides. A span quote only
+claims that the source says this. The quote check still searches the
+host-supplied content, so a paraphrase fails `QUOTE_NOT_FOUND`. Hosts whose
+models paraphrase pass `spanQuotes: false`.
+
+OpenAI citations name sources rather than index them. A `file_citation`
+resolves to the supplied source whose `id` or `aliases` contain its
+`file_id`, or else the one source whose `aliases` contain its `filename`.
+Anything else gets the ID `file:<file_id>`, which no supplied source has, so
+it fails `EVIDENCE_UNKNOWN_ID`. A `url_citation` resolves to the source
+whose `locator` or `aliases` match the URL, ignoring `utm_*` parameters, the
+fragment and a trailing slash. Otherwise it becomes a content-less web
+record.
 
 ## Independent semantic judge
 

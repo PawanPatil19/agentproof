@@ -1,0 +1,48 @@
+{
+  "_note": "Synthetic Responses API response in the documented annotations shape. The changelog was uploaded for file_search as file-changelog32; the capabilities page was fetched by web_search. Sources are listed in the test.",
+  "id": "resp_synthetic_01",
+  "object": "response",
+  "model": "gpt-5",
+  "status": "completed",
+  "output": [
+    {
+      "type": "file_search_call",
+      "id": "fs_synthetic_01",
+      "status": "completed",
+      "queries": ["what changed in 3.2"],
+      "results": null
+    },
+    {
+      "type": "web_search_call",
+      "id": "ws_synthetic_01",
+      "status": "completed"
+    },
+    {
+      "type": "message",
+      "id": "msg_synthetic_01",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Here is what changed in 3.2. Offline sync is now generally available. Exports are available as PDF and Markdown.",
+          "annotations": [
+            {
+              "type": "file_citation",
+              "index": 69,
+              "file_id": "file-changelog32",
+              "filename": "changelog-3.2.md"
+            },
+            {
+              "type": "url_citation",
+              "start_index": 70,
+              "end_index": 111,
+              "url": "https://docs.lumen.example/capabilities?utm_source=openai",
+              "title": "Capabilities"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

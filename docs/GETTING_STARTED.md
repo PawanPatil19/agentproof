@@ -76,8 +76,9 @@ Now break it: change the quote to `"Pricing is $10."` and run it again. The
 quote check fails because the evidence never says that.
 
 > Already using a provider's native citations? Skip writing claims by hand:
-> `fromAnthropicMessage(response, documents)` builds the claims and evidence
-> for you (see the README).
+> `fromAnthropicMessage(response, documents)` or
+> `fromOpenAIResponse(response, sources)` builds the claims and evidence for
+> you (see the README).
 
 ## 5. Enforce a policy (2 minutes)
 

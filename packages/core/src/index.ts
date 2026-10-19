@@ -35,10 +35,13 @@ export { parseReceipt, type ReceiptParse } from "./report/schema.ts";
 export {
   fromAnthropicMessage,
   fromCitedSegments,
+  fromOpenAIResponse,
   type AdaptedRun,
   type AdaptOptions,
   type AnthropicMessageLike,
   type CitedSegment,
   type NormalizedCitation,
+  type OpenAIAdaptOptions,
+  type OpenAIResponseLike,
   type SuppliedSource,
 } from "./adapters/cited.ts";
