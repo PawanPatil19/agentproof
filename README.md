@@ -20,7 +20,7 @@ can verify.
 > contains that text, not that the claim follows from it.
 
 <p align="center">
-  <a href="docs/assets/shopping-demo.mp4"><img src="docs/assets/shopping-demo.gif" alt="Demo: a shopping agent pays through the AgentProof MCP gateway under an SGD 80 per payment, SGD 150 a day policy. Two payments go through; an over-limit laptop, an unapproved merchant, a payment past the daily total and a wallet key export are blocked before they run, and an edited receipt fails verification." width="100%"></a>
+  <a href="docs/assets/shopping-demo.mp4"><img src="docs/assets/shopping-demo.gif" alt="Demo: a shopping agent pays through the AgentProof MCP gateway under an SGD 80 per payment, SGD 150 per 24 hours policy. Two payments go through; an over-limit laptop, an unapproved merchant, a payment past the 24-hour total and a wallet key export are blocked before they run, and an edited, re-sealed receipt fails signature verification." width="100%"></a>
 </p>
 
 <p align="center"><sub>An agent with a wallet shops under an SGD spending limit through the MCP gateway (<code>npm run demo:shop</code>). <a href="docs/assets/shopping-demo.mp4">Watch as MP4</a>.</sub></p>
@@ -98,17 +98,18 @@ npm run demo:shop
 A shopping agent pays merchants through the [MCP gateway](packages/mcp-gateway).
 The agent is a plain MCP client with no AgentProof code; the household's
 [policy](examples/shopping-agent/agentproof.yaml) allows SGD only, three
-approved merchants, at most SGD 80 a payment and SGD 150 a day. Of seven calls,
-three go through. The gateway stops a SGD 1,299 laptop, a merchant nobody
-approved, a payment that would pass the daily total, and a wallet key export a
-product page talked the agent into, all before they reach the payments server.
-Every call leaves a signed receipt, and a receipt edited to say "allow" fails
-verification:
+approved merchants, at most SGD 80 a payment and SGD 150 in any 24 hours. Of
+seven calls, three go through. The gateway stops a SGD 1,299 laptop, a merchant
+nobody approved, a payment that would pass the 24-hour total, and a wallet key
+export (as if a product page had talked the agent into it), all before they
+reach the payments server. Every call leaves a signed receipt. The demo edits
+the laptop receipt to say "allow" and re-seals it so its digest still matches;
+the signature check rejects it:
 
 ```bash
 npm run agentproof -- verify-receipt examples/shopping-agent/out/laptop-edited.json \
   --public-key examples/shopping-agent/out/issuer.pub
-# ✗ not verified: the receipt was edited after it was sealed
+# ✗ not verified: the signature does not verify
 ```
 
 The agent is scripted rather than a model, so every run makes the same calls.

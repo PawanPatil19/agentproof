@@ -1,7 +1,7 @@
 // The demo's claims, as tests: what reached the payments server, why each call was stopped, and that receipts verify.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { verifyReceiptSignature } from "@agentproof/core";
+import { seal, verifyReceiptSignature } from "@agentproof/core";
 import { runShopping } from "../src/shop.ts";
 
 describe("shopping agent behind the MCP gateway", async () => {
@@ -20,7 +20,7 @@ describe("shopping agent behind the MCP gateway", async () => {
         ["payments.send", "block", "TOOL_LIMIT_EXCEEDED"], // over SGD 80 a payment
         ["payments.send", "block", "TOOL_ARGS_INVALID"], // merchant not approved
         ["payments.send", "allow", null],
-        ["payments.send", "block", "TOOL_LIMIT_EXCEEDED"], // over SGD 150 a day
+        ["payments.send", "block", "TOOL_LIMIT_EXCEEDED"], // over SGD 150 per 24h
         ["wallet.export_keys", "block", "TOOL_NOT_ALLOWED"],
       ],
     );
@@ -32,7 +32,7 @@ describe("shopping agent behind the MCP gateway", async () => {
     assert.deepEqual(run.steps.map((s) => s.executed), [true, true, false, false, true, false, false]);
   });
 
-  test("the daily spend carries across calls, so a blocked payment does not use budget", () => {
+  test("the 24-hour spend carries across calls, so a blocked payment does not use budget", () => {
     assert.deepEqual(run.steps.map((s) => s.spentToday ?? null), [null, 59.9, 59.9, 59.9, 102.4, 102.4, null]);
   });
 
@@ -47,7 +47,10 @@ describe("shopping agent behind the MCP gateway", async () => {
     assert.equal(run.receipts.length, run.steps.length);
     for (const receipt of run.receipts) assert.equal(verifyReceiptSignature(receipt, run.publicKeyPem).ok, true);
     const laptop = run.steps[2]!.receipt;
-    const edited = { ...laptop, decision: "allow" as const };
-    assert.deepEqual(verifyReceiptSignature(edited, run.publicKeyPem), { ok: false, reason: "DIGEST_MISMATCH" });
+    // A naive edit breaks the digest; a re-sealed edit keeps the digest valid and is caught by the signature.
+    const naive = { ...laptop, decision: "allow" as const };
+    assert.deepEqual(verifyReceiptSignature(naive, run.publicKeyPem), { ok: false, reason: "DIGEST_MISMATCH" });
+    const resealed = { ...seal({ ...laptop, decision: "allow" as const }), signature: laptop.signature! };
+    assert.deepEqual(verifyReceiptSignature(resealed, run.publicKeyPem), { ok: false, reason: "BAD_SIGNATURE" });
   });
 });

@@ -6,7 +6,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { verifyReceiptSignature, type Receipt } from "@agentproof/core";
+import { seal, verifyReceiptSignature, type Receipt } from "@agentproof/core";
 import { FileReceiptStore } from "@agentproof/sdk";
 import { runShopping, type Step } from "./shop.ts";
 
@@ -33,10 +33,10 @@ function describe(step: Step): string {
 
 function outcome(step: Step): string {
   if (step.decision === "allow") {
-    const spent = step.spentToday !== undefined ? `  spent today ${sgd(step.spentToday)} of 150` : "";
+    const spent = step.spentToday !== undefined ? `  spent in the last 24h ${sgd(step.spentToday)} of 150` : "";
     return `${badge("allow")} ${green(step.executed ? "ran" : "")}${spent}`;
   }
-  // Messages come from the guard and name fields and limits, never argument values.
+  // Messages come from the guard: they name fields, limits and amounts, never string values like the merchant.
   const why = (step.reason ?? "").replace(/^'[^']+' /, "");
   return `${badge(step.decision)} ${red(step.reasonCode ?? "")} ${dim(why)}`;
 }
@@ -46,7 +46,7 @@ await mkdir(OUT, { recursive: true });
 const run = await runShopping({ store: new FileReceiptStore(OUT) });
 
 console.log(bold("AgentProof · a shopping agent behind the MCP gateway"));
-console.log(dim("policy household-shopping@1: SGD only · approved merchants · max SGD 80 a payment · SGD 150 a day"));
+console.log(dim("policy household-shopping@1: SGD only · approved merchants · max SGD 80 a payment · SGD 150 per 24h"));
 console.log(`\nagent sees tools: ${run.visibleTools.join(", ")}  ${dim("(wallet.export_keys hidden)")}\n`);
 
 run.steps.forEach((step, i) => {
@@ -61,7 +61,9 @@ console.log(`\n${bold("payments server received")} ${run.payments.length} paymen
 // Every call left a signed receipt. Check one, then show that an edit is caught.
 await writeFile(join(OUT, "issuer.pub"), run.publicKeyPem);
 const laptop = run.steps.find((s) => (s.args as { item?: string }).item === "Laptop")!.receipt;
-const edited: Receipt = { ...laptop, decision: "allow", evaluated_decision: "allow", reason_codes: [] };
+// A careful forger re-seals the edit so its digest matches, and keeps the original signature.
+// Only the signature can catch that.
+const edited: Receipt = { ...seal({ ...laptop, decision: "allow", evaluated_decision: "allow", reason_codes: [] }), signature: laptop.signature! };
 await writeFile(join(OUT, "laptop.json"), `${JSON.stringify(laptop, null, 2)}\n`);
 await writeFile(join(OUT, "laptop-edited.json"), `${JSON.stringify(edited, null, 2)}\n`);
 
@@ -69,4 +71,4 @@ const check = verifyReceiptSignature(laptop, run.publicKeyPem);
 const tampered = verifyReceiptSignature(edited, run.publicKeyPem);
 console.log(`${bold(`${run.receipts.length} signed receipts`)} ${dim("(Ed25519 DSSE over in-toto)")} in ${show}/`);
 console.log(`  laptop receipt          ${check.ok ? green(`✓ verified with issuer.pub · decision ${laptop.decision}`) : red("✗ failed")}`);
-console.log(`  same, edited to "allow" ${tampered.ok ? red("✓ verified (unexpected)") : red(`✗ rejected (${tampered.reason}): edited after it was signed`)}`);
+console.log(`  same, edited to "allow" ${tampered.ok ? red("✓ verified (unexpected)") : red(`✗ rejected (${tampered.reason}): the signature does not match the edit`)}`);

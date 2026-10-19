@@ -3,7 +3,7 @@ api_version: agentproof/v1
 policy:
   id: household-shopping
   version: 1
-  description: A shopping agent may search and pay approved merchants in SGD, up to 80 per payment and 150 a day.
+  description: A shopping agent may search and pay approved merchants in SGD, up to 80 per payment and 150 in any 24 hours.
 mode: enforce
 registry:
   tools: [catalog.search, payments.send, wallet.export_keys]
@@ -34,7 +34,7 @@ contracts:
         amount_field: amount
         max_per_call: 80       # SGD per payment
         max_total: 150         # SGD per rolling day, across every call this agent makes
-        max_calls: 5
-        window_ms: 86400000
+        max_calls: 5           # payments that ran, per window
+        window_ms: 86400000    # rolling 24 hours
 enforcement:
   on_required_check_fail: block

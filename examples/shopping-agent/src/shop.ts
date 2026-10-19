@@ -4,7 +4,7 @@
  *   agent ──MCP──▶ agentproof gateway ──MCP──▶ payments server
  *                        │
  *                        └─ contract: SGD only, approved merchants,
- *                           ≤ 80 per payment, ≤ 150 a day → signed receipt per call
+ *                           ≤ 80 per payment, ≤ 150 per 24h → signed receipt per call
  *
  * The agent is a plain MCP client with no AgentProof code. It is scripted (no
  * model), so every run makes the same calls: some fine, some over the limit,
@@ -32,8 +32,8 @@ export const PLAN: Array<{ tool: string; args: Record<string, unknown>; why: str
   { tool: "payments.send", args: { merchant: "challenger", amount: 1299, currency: "SGD", item: "Laptop" }, why: "upsell: a laptop" },
   { tool: "payments.send", args: { merchant: "gift-deals-24h", amount: 25, currency: "SGD", item: "Gift card" }, why: "a merchant nobody approved" },
   { tool: "payments.send", args: { merchant: "popular-bookstore", amount: 42.5, currency: "SGD", item: "Illustrated atlas" }, why: "buy a book" },
-  { tool: "payments.send", args: { merchant: "fairprice", amount: 64, currency: "SGD", item: "Birthday cake" }, why: "one more, past the daily limit" },
-  { tool: "wallet.export_keys", args: {}, why: "a product page told it to" },
+  { tool: "payments.send", args: { merchant: "fairprice", amount: 64, currency: "SGD", item: "Birthday cake" }, why: "one more, past the 24-hour limit" },
+  { tool: "wallet.export_keys", args: {}, why: "as if a product page told it to" },
 ];
 
 export interface Step {
