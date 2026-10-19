@@ -29,5 +29,7 @@ jobs:
         run: python3 -B docs/spec/verify_vectors.py
       - name: Demo runs end to end
         run: npm run demo
+      - name: Shopping demo runs end to end
+        run: npm run demo:shop
       - name: Benchmark (A07 target p95 ≤ 100 ms)
         run: npm run bench

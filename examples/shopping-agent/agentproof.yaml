@@ -1,0 +1,40 @@
+# A household lets a shopping agent spend, within limits it can't talk its way past.
+api_version: agentproof/v1
+policy:
+  id: household-shopping
+  version: 1
+  description: A shopping agent may search and pay approved merchants in SGD, up to 80 per payment and 150 in any 24 hours.
+mode: enforce
+registry:
+  tools: [catalog.search, payments.send, wallet.export_keys]
+checks:
+  evidence:
+    min_claims: 0              # tool calls carry no claims
+contracts:
+  shopping:
+    version: 1
+    coordinator: household
+    worker: shopper
+    deadline_ms: 30000         # per call
+    allowed_tools: [catalog.search, payments.send]   # wallet.export_keys is denied by default
+    tool_constraints:
+      payments.send:
+        args_schema:
+          type: object
+          required: [merchant, amount, currency, item]
+          additionalProperties: false
+          properties:
+            merchant: { type: string }
+            amount: { type: number }
+            currency: { type: string }
+            item: { type: string }
+        allowed_values:
+          currency: [SGD]
+          merchant: [challenger, popular-bookstore, fairprice]
+        amount_field: amount
+        max_per_call: 80       # SGD per payment
+        max_total: 150         # SGD per rolling day, across every call this agent makes
+        max_calls: 5           # payments that ran, per window
+        window_ms: 86400000    # rolling 24 hours
+enforcement:
+  on_required_check_fail: block

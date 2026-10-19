@@ -1,0 +1,16 @@
+{
+  "name": "@agentproof/example-shopping-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An agent shops under an SGD spending limit through the AgentProof MCP gateway.",
+  "scripts": {
+    "start": "node dist/run.js"
+  },
+  "dependencies": {
+    "@agentproof/core": "0.1.0",
+    "@agentproof/mcp-gateway": "0.1.0",
+    "@agentproof/sdk": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.32.1"
+  }
+}
