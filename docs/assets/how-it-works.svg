@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-labelledby="t d">
+  <title id="t">How AgentProof gates a workflow</title>
+  <desc id="d">Three gates sit outside the agents. The tool guard checks a worker's tool call before it runs. The completion gate checks a worker's deliverable before the coordinator reads it. The answer gate checks the final answer before a person sees it. Every gate writes a sealed, optionally signed receipt that an auditor or counterparty can verify. An optional independent judge sees only a claim and its excerpt.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#4f6f62"/></marker>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#8aa298"/></marker>
+  </defs>
+  <rect width="1200" height="640" rx="20" fill="#f6f7f2"/>
+  <g font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
+    <!-- column headers -->
+    <g font-size="12" font-weight="700" fill="#5b6d66" letter-spacing="1.5">
+      <text x="150" y="44" text-anchor="middle">WHAT HAPPENS</text>
+      <text x="600" y="44" text-anchor="middle">AGENTPROOF GATE (OUTSIDE THE AGENTS)</text>
+      <text x="1050" y="44" text-anchor="middle">ONLY IF ALLOWED</text>
+    </g>
+    <!-- gate column background -->
+    <rect x="410" y="62" width="380" height="356" rx="18" fill="#e3ecdf" stroke="#b8cdb9"/>
+
+    <!-- rows -->
+    <g font-size="15">
+      <!-- row 1 -->
+      <rect x="40" y="82" width="220" height="84" rx="12" fill="#fff" stroke="#c9d6cc"/>
+      <text x="150" y="118" text-anchor="middle" font-weight="700" fill="#192d29">Worker calls a tool</text>
+      <text x="150" y="142" text-anchor="middle" font-size="13" fill="#5b6d66">e.g. publish.post</text>
+      <rect x="440" y="82" width="320" height="84" rx="12" fill="#146b50"/>
+      <text x="600" y="116" text-anchor="middle" font-weight="700" fill="#fff">① Tool guard</text>
+      <text x="600" y="140" text-anchor="middle" font-size="13" fill="#d9ebd6">contract allows it? accepted? on time?</text>
+      <rect x="940" y="82" width="220" height="84" rx="12" fill="#fff" stroke="#c9d6cc"/>
+      <text x="1050" y="118" text-anchor="middle" font-weight="700" fill="#192d29">The tool runs</text>
+      <text x="1050" y="142" text-anchor="middle" font-size="13" fill="#a83b3b">or never runs at all</text>
+
+      <!-- row 2 -->
+      <rect x="40" y="198" width="220" height="84" rx="12" fill="#fff" stroke="#c9d6cc"/>
+      <text x="150" y="234" text-anchor="middle" font-weight="700" fill="#192d29">Worker hands off</text>
+      <text x="150" y="258" text-anchor="middle" font-size="13" fill="#5b6d66">claims + evidence</text>
+      <rect x="440" y="198" width="320" height="84" rx="12" fill="#146b50"/>
+      <text x="600" y="232" text-anchor="middle" font-weight="700" fill="#fff">② Completion gate</text>
+      <text x="600" y="256" text-anchor="middle" font-size="13" fill="#d9ebd6">schema · quotes · sources · contract</text>
+      <rect x="940" y="198" width="220" height="84" rx="12" fill="#fff" stroke="#c9d6cc"/>
+      <text x="1050" y="234" text-anchor="middle" font-weight="700" fill="#192d29">Coordinator reads it</text>
+      <text x="1050" y="258" text-anchor="middle" font-size="13" fill="#5b6d66">or asks for one repair</text>
+
+      <!-- row 3 -->
+      <rect x="40" y="314" width="220" height="84" rx="12" fill="#fff" stroke="#c9d6cc"/>
+      <text x="150" y="350" text-anchor="middle" font-weight="700" fill="#192d29">Coordinator answers</text>
+      <text x="150" y="374" text-anchor="middle" font-size="13" fill="#5b6d66">final answer</text>
+      <rect x="440" y="314" width="320" height="84" rx="12" fill="#146b50"/>
+      <text x="600" y="348" text-anchor="middle" font-weight="700" fill="#fff">③ Answer gate</text>
+      <text x="600" y="372" text-anchor="middle" font-size="13" fill="#d9ebd6">every claim grounded? enough claims?</text>
+      <rect x="940" y="314" width="220" height="84" rx="12" fill="#fff" stroke="#c9d6cc"/>
+      <text x="1050" y="350" text-anchor="middle" font-weight="700" fill="#192d29">A person sees it</text>
+      <text x="1050" y="374" text-anchor="middle" font-size="13" fill="#5b6d66">or it goes to review</text>
+    </g>
+
+    <!-- arrows -->
+    <g stroke="#4f6f62" stroke-width="2.5" fill="none" marker-end="url(#a)">
+      <path d="M262 124 H436"/><path d="M762 124 H936"/>
+      <path d="M262 240 H436"/><path d="M762 240 H936"/>
+      <path d="M262 356 H436"/><path d="M762 356 H936"/>
+    </g>
+
+    <!-- receipt + judge -->
+    <g stroke="#8aa298" stroke-width="2" stroke-dasharray="6 6" fill="none" marker-end="url(#ad)">
+      <path d="M600 420 V488"/>
+      <path d="M762 530 H836"/>
+    </g>
+    <path d="M300 488 C 330 470, 380 440, 436 420" stroke="#875414" stroke-width="2" stroke-dasharray="4 5" fill="none" marker-end="url(#a)"/>
+
+    <rect x="440" y="492" width="320" height="76" rx="12" fill="#dcf489" stroke="#a8bf5a"/>
+    <text x="600" y="524" text-anchor="middle" font-size="16" font-weight="700" fill="#192d29">Receipt</text>
+    <text x="600" y="548" text-anchor="middle" font-size="13" fill="#3c5a35">sealed · Ed25519-signed · replayable</text>
+
+    <rect x="40" y="492" width="330" height="76" rx="12" fill="#fff" stroke="#d9b779"/>
+    <text x="205" y="524" text-anchor="middle" font-size="15" font-weight="700" fill="#192d29">Independent judge (opt-in)</text>
+    <text x="205" y="548" text-anchor="middle" font-size="13" fill="#875414">sees only the claim + its excerpt</text>
+
+    <rect x="840" y="492" width="320" height="76" rx="12" fill="#fff" stroke="#c9d6cc"/>
+    <text x="1000" y="524" text-anchor="middle" font-size="15" font-weight="700" fill="#192d29">Auditor or counterparty</text>
+    <text x="1000" y="548" text-anchor="middle" font-size="13" fill="#5b6d66">verifies with your public key</text>
+
+    <text x="600" y="610" text-anchor="middle" font-size="13" fill="#5b6d66">Solid arrows: runtime flow, gated before anything happens. Dashed: records and opt-in model assessment.</text>
+  </g>
+</svg>

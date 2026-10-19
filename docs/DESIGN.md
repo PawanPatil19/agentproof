@@ -30,10 +30,12 @@ Three layers that never mix:
 | --- | --- | --- |
 | `@agentproof/core` | Envelope parsing, policy compiler, checks, decision engine, receipts, HTML report | none (pure, apart from a clock) |
 | `@agentproof/sdk` | Runtime gates: contract ledger, tool guard, completion & answer gates, approvals, receipt store | filesystem (receipts) |
-| `@agentproof/cli` | `inspect`, `check`, `report`, `init`, `policy validate`, `prune` | filesystem |
+| `@agentproof/cli` | `inspect`, `check`, `report`, `init`, `policy validate`, `keys`, `verify-receipt`, `prune` | filesystem |
+| `@agentproof/judge-anthropic` | Reference independent judge backed by Claude | network (opt-in) |
 | `examples/research-handoff` | Two-agent reference app | — |
 
-Dependencies point one way: `cli → sdk → core`. Core has two runtime
+Dependencies point one way: `cli → sdk → core`, and `judge-anthropic → core`.
+Core never imports a provider SDK. Core has two runtime
 dependencies (`ajv`, `yaml`, plus `ajv-formats`).
 
 ### Core layout
@@ -82,8 +84,9 @@ All v1 checks are deterministic. Each decides for itself whether it applies.
 | `evidence.locator` | cited record has a locator | `javascript:`/`data:`/`file:` scheme, malformed URL | — |
 | `evidence.source` | `allowed_source_ids` set | source not allowed / missing | — |
 | `evidence.freshness` | `max_source_age_days` set | older than limit | no trusted `published_at` |
+| `claims.support` | `checks.semantics.enabled` (needs a judge) | judge: excerpt doesn't support the claim | judge unclear, timed out, errored, or none ran |
 | `numeric.fidelity` | claim has `value` | value outside tolerance, unit differs | no cited record holds the key |
-| `tools.permission` | contract has `allowed_tools` | tool not allowed (even if blocked), caller ≠ worker, call made outside the contract's terms (before acceptance, after deadline) even if observe mode let it run | — |
+| `tools.permission` | worker completion with a contract (tools denied unless listed; `["*"]` allows any) | tool not allowed (even if blocked), caller ≠ worker, call made outside the contract's terms (before acceptance, after deadline) even if observe mode let it run | — |
 | `contract.binding` | worker completion under a policy with contracts | missing, unknown, policy changed, digest altered, not accepted, wrong acceptor | — |
 | `contract.deadline` | worker completion with a contract | submitted after deadline | invalid deadline |
 | `contract.lifecycle` | SDK only | replay, superseded attempt, forged submitter, edited contract | — |
@@ -92,6 +95,30 @@ All v1 checks are deterministic. Each decides for itself whether it applies.
 "Cited" records are those referenced by at least one claim (all records when
 no claim cites any). Freshness and deadlines use the envelope's
 `submitted_at`, never wall-clock time, so replays are stable.
+
+All checks are deterministic except `claims.support`, which is marked
+`kind: "probabilistic"` and rendered as a model assessment.
+
+## Provider adapters
+
+`fromAnthropicMessage(response, documents)` and the provider-neutral
+`fromCitedSegments(segments, sources)` turn native citations into claims and
+evidence. One claim per citation; the provider's `cited_text` becomes the
+claim's quote; evidence content comes only from what the host supplied.
+A citation to an index the host never supplied stays unresolved and fails
+`evidence.reference`. Web-search citations carry no host-captured content,
+so their quotes are inconclusive (review) until the host captures the page.
+
+## Independent semantic judge
+
+`judgeClaims(envelope, policy, judge)` runs before `verifyRun` and passes its
+results in as `extraResults`. It only judges claims whose quote was already
+found verbatim, gives the judge the claim text and about 300 characters of
+context around the quote, and nothing else. Concurrency, per-claim timeout
+and a claim cap come from `checks.semantics`. Results record the judge ID
+(model and prompt version) and the excerpt hash. If semantics are enabled
+but no judge ran (a CLI replay, say), every claim gets `JUDGE_UNAVAILABLE`,
+so the run goes to review instead of passing silently.
 
 ## Decision rule
 
@@ -166,7 +193,10 @@ are restricted to a plain character set at the envelope boundary. `privacy.captu
 Receipts are written atomically with mode `0600` in a `0700` directory.
 
 A seal detects edits, not tampering: anyone who can rewrite the file can
-re-seal it. Signed receipts are future work.
+re-seal it. A **signature** fixes that: Ed25519 over `receipt_sha256`
+(which covers every other field), with a key ID derived from the public key.
+The signature sits outside the digest, and re-sealing drops a stale one.
+`verifyReceiptSignature` checks digest, key ID and signature, in that order.
 
 The HTML report is fully static: no scripts, a CSP that also forbids forms
 and `<base>`, every string escaped, class names drawn from fixed sets, links
@@ -184,7 +214,6 @@ checks.
 
 ## Deferred, deliberately
 
-Semantic (model) judging, automatic claim extraction, MCP gateway,
-OpenTelemetry export, SQLite / encrypted snapshots, hosted dashboard, signed
-receipts, Python SDK. The `ReceiptStore` interface and the `kind:
-"probabilistic"` result field are the seams those plug into.
+Automatic claim extraction, MCP gateway, OpenTelemetry export, SQLite or
+encrypted snapshots, hosted dashboard, signed contracts, Python SDK. The
+`ReceiptStore` and `Judge` interfaces are the seams those plug into.
