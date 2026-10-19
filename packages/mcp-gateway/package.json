@@ -1,0 +1,27 @@
+{
+  "name": "@agentproof/mcp-gateway",
+  "version": "0.1.0",
+  "description": "MCP proxy that runs every tool call through an AgentProof contract and writes a receipt.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "source": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "agentproof-mcp-gateway": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@agentproof/core": "0.1.0",
+    "@agentproof/sdk": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.32.1"
+  }
+}

@@ -14,6 +14,9 @@
       "path": "packages/judge-anthropic"
     },
     {
+      "path": "packages/mcp-gateway"
+    },
+    {
       "path": "examples/research-handoff"
     }
   ]

@@ -236,6 +236,11 @@ checks.
 
 ## Deferred, deliberately
 
-Automatic claim extraction, MCP gateway, OpenTelemetry export, SQLite or
+Automatic claim extraction, OpenTelemetry export, SQLite or
 encrypted snapshots, hosted dashboard, signed contracts, Python SDK. The
 `ReceiptStore` and `Judge` interfaces are the seams those plug into.
+
+The MCP gateway (`packages/mcp-gateway`) is built on the same SDK gate: it
+issues one contract attempt per tool call, so each call gets its own receipt.
+It proxies tools only; resources, prompts and sampling are not forwarded,
+because they would reach the upstream server without passing the gate.

@@ -1,0 +1,20 @@
+# Policy for the MCP gateway tests: an agent may search and read docs, not publish.
+api_version: agentproof/v1
+policy:
+  id: mcp-gateway-test
+  version: 1
+mode: enforce
+registry:
+  tools: [docs.search, docs.read, publish.post]
+checks:
+  evidence:
+    min_claims: 0     # tool calls carry no claims
+contracts:
+  agent_tools:
+    version: 1
+    coordinator: operator
+    worker: agent
+    deadline_ms: 30000
+    allowed_tools: [docs.search, docs.read]
+enforcement:
+  on_required_check_fail: block
