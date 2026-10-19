@@ -255,6 +255,7 @@ packages/core             pure engine: policy, checks, decisions, receipts, adap
 packages/sdk              runtime gates: contracts, tool guard, judge wiring, approvals, receipt store
 packages/cli              the agentproof command
 packages/judge-anthropic  reference independent judge backed by Claude
+packages/mcp-gateway      MCP proxy: gates every tool call of any MCP client and writes a receipt
 examples/                 research-handoff: the two-agent reference app
 fixtures/                 30 reviewed failure-mode runs and a provider response
 docs/                     GETTING_STARTED, DESIGN, CRITIQUE, images
