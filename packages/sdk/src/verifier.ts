@@ -33,6 +33,7 @@ import {
   type ReasonCode,
   type Receipt,
   type RunEnvelope,
+  type ToolCallVerdict,
   type ToolEvent,
 } from "@agentproof/core";
 import { ApprovalError, ContractError, ToolBlockedError } from "./errors.ts";
@@ -86,6 +87,24 @@ export interface Approval {
   expires_at: string;
 }
 
+/** Deep-copy arguments into frozen plain data. Getters run once; functions, symbols and proxies are refused. */
+function snapshotArgs(args: unknown): { ok: true; value: unknown } | { ok: false; error: string } {
+  let value: unknown;
+  try {
+    value = structuredClone(args);
+  } catch (error) {
+    return { ok: false, error: (error as Error).name };
+  }
+  const freeze = (v: unknown): void => {
+    if (v !== null && typeof v === "object" && !Object.isFrozen(v)) {
+      Object.freeze(v);
+      for (const child of Object.values(v)) freeze(child);
+    }
+  };
+  freeze(value);
+  return { ok: true, value };
+}
+
 export async function createVerifier(options: VerifierOptions = {}): Promise<Verifier> {
   let policy = options.policy;
   if (!policy && options.policyText !== undefined) policy = parsePolicy(options.policyText);
@@ -116,6 +135,7 @@ export class Verifier {
   private readonly now: () => Date;
   private readonly newId: () => string;
   private readonly stateStore?: StateStore;
+  private stateRevision = 0;
   private readonly ledger = new ContractLedger();
   private readonly approvals = new Map<string, ApprovalRecord>();
   /** Every receipt this verifier produced, by digest. Approvals are only ever granted against these. */
@@ -133,9 +153,17 @@ export class Verifier {
     this.stateStore = options.state;
     const saved = this.stateStore?.load();
     if (saved) {
-      // A verification interrupted by the restart produced no receipt. Treat it
-      // as rejected so the task can be retried instead of stuck in 'submitted'.
-      this.ledger.restore(saved.attempts.map((a) => (a.state === "submitted" ? { ...a, state: "rejected" as const } : a)));
+      this.stateRevision = saved.revision;
+      // A verification interrupted by the restart is settled from its recorded
+      // receipt; with none, it produced nothing and counts as rejected, so the
+      // task can be retried instead of staying stuck in 'submitted'.
+      const settledBy = new Map(saved.receipts.filter((r) => r.attempt_id).map((r) => [r.attempt_id!, r.evaluated_decision]));
+      this.ledger.restore(
+        saved.attempts.map((a) => {
+          if (a.state !== "submitted") return a;
+          return { ...a, state: settledBy.get(a.contract.attempt_id) === "allow" ? ("validated" as const) : ("rejected" as const) };
+        }),
+      );
       for (const record of saved.approvals) this.approvals.set(record.approval.approval_id, { approval: Object.freeze({ ...record.approval }), used: record.used });
       for (const ref of saved.receipts) this.issuedReceipts.set(ref.receipt_sha256, ref);
     }
@@ -204,27 +232,37 @@ export class Verifier {
    * is never invoked. `caller.identity` must come from the host, not the agent.
    */
   guardTools<T>(executor: ToolExecutor<T>, contract: ContractInstance, caller: { identity: string }): ToolExecutor<T> {
-    return async (tool, args) => {
+    return async (tool, rawArgs) => {
       // Everything up to the executor call is synchronous, so concurrent calls
       // are checked and recorded one at a time and cannot both spend the same budget.
       const entry = this.ledger.get(contract.attempt_id);
       const now = this.now();
       const event: ToolEvent = { tool, agent: caller.identity, at: now.toISOString(), outcome: "invoked" };
       let violation = this.toolViolation(entry, tool, caller.identity);
+      let args = rawArgs;
 
       const compiled = entry && this.policy.contracts.get(entry.contract.name);
-      const constraint = compiled?.toolConstraints.get(tool);
-      let runs = !violation || this.mode !== "enforce";
-      if (entry && compiled && constraint && !violation) {
-        const prior = usageOf(this.taskToolEvents(entry), tool, now, constraint.definition.window_ms);
-        const verdict = evaluateToolCall(compiled, tool, args, prior);
+      // Only apply constraints the contract was actually issued under.
+      const pinned = compiled && entry && compiled.definitionDigest === entry.contract.definition_digest ? compiled : undefined;
+      const constraint = pinned?.toolConstraints.get(tool);
+      if (entry && pinned && constraint) {
+        // Check and execute the same plain-data copy, so getters, proxies or a
+        // later mutation of the agent's object cannot change what was approved.
+        const snapshot = snapshotArgs(rawArgs);
+        const prior = usageOf(this.usageEvents(entry, constraint.definition.window_ms !== undefined), tool, now, constraint.definition.window_ms);
+        const verdict: ToolCallVerdict = snapshot.ok
+          ? evaluateToolCall(pinned, tool, snapshot.value, prior)
+          : { ok: false, reason: "TOOL_ARGS_INVALID", message: `'${tool}' arguments must be plain data (${snapshot.error}).` };
+        if (snapshot.ok) args = snapshot.value;
         if (verdict.amount !== undefined) event.amount = verdict.amount;
-        if (!verdict.ok) violation = { reason: verdict.reason, message: verdict.message };
-        runs = !violation || this.mode !== "enforce";
-        const metered = constraint.definition.amount_field !== undefined;
+        // A lifecycle problem takes precedence in the message, but usage is still metered.
+        if (!verdict.ok && !violation) violation = { reason: verdict.reason, message: verdict.message };
+        const runs = !violation || this.mode !== "enforce";
         const used = runs ? { calls: prior.calls + 1, total: prior.total + (event.amount ?? 0) } : prior;
-        event.consumed = metered ? used : { calls: used.calls };
+        event.consumed = constraint.definition.amount_field !== undefined ? used : { calls: used.calls };
+        if (runs && !snapshot.ok) args = rawArgs; // observe mode: the call proceeds as the agent made it
       }
+      const runs = !violation || this.mode !== "enforce";
       if (violation) Object.assign(event, { reason: violation.message, reason_code: violation.reason });
 
       if (!runs) {
@@ -295,10 +333,13 @@ export class Verifier {
       submitted_at: this.now().toISOString(),
     };
     extra.push(...(await this.judged(envelope)));
-    const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra }));
+    const attemptId = entry && firstSubmission ? entry.contract.attempt_id : undefined;
+    const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra }), attemptId);
     // Only settle an attempt that is still ours to settle.
-    if (entry && firstSubmission && entry.state === "submitted") entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
-    this.saveState();
+    if (entry && firstSubmission && entry.state === "submitted") {
+      entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
+      this.saveState();
+    }
     return receipt;
   }
 
@@ -444,36 +485,62 @@ export class Verifier {
   }
 
   /** Persist before release. If a durable receipt cannot be written, protected release is blocked. */
-  private async finish(evaluated: Receipt): Promise<Receipt> {
-    let receipt = await this.persist(this.sign(evaluated));
-    // A persistence failure amends (and re-seals) the receipt; sign the final version.
-    if (!receipt.signature && this.signingKeyPem) receipt = this.sign(receipt);
-    this.issuedReceipts.set(receipt.receipt_sha256, {
-      receipt_sha256: receipt.receipt_sha256,
-      run_id: receipt.run_id,
-      output_sha256: receipt.output_sha256,
-      policy_digest: receipt.policy.digest,
-      evaluated_decision: receipt.evaluated_decision,
-    });
-    this.saveState();
+  /**
+   * Record the receipt in the verifier state before it is persisted, so a
+   * crash in between never leaves a durable receipt this verifier has
+   * forgotten. `attemptId` lets a restart settle the attempt from it.
+   */
+  private async finish(evaluated: Receipt, attemptId?: string): Promise<Receipt> {
+    const record = (r: Receipt) => {
+      this.issuedReceipts.set(r.receipt_sha256, {
+        receipt_sha256: r.receipt_sha256,
+        run_id: r.run_id,
+        output_sha256: r.output_sha256,
+        policy_digest: r.policy.digest,
+        evaluated_decision: r.evaluated_decision,
+        ...(attemptId ? { attempt_id: attemptId } : {}),
+      });
+      this.saveState();
+    };
+    const signed = this.sign(evaluated);
+    record(signed);
+    let receipt = await this.persist(signed);
+    if (receipt !== signed) {
+      // A persistence failure amends (and re-seals) the receipt; sign and record the final version.
+      if (!receipt.signature && this.signingKeyPem) receipt = this.sign(receipt);
+      this.issuedReceipts.delete(signed.receipt_sha256);
+      record(receipt);
+    }
     return receipt;
   }
 
-  /** Tool events from every attempt of this entry's contract for its task: budgets span retries. */
-  private taskToolEvents(entry: AttemptEntry): ToolEvent[] {
-    return this.ledger
-      .forTask(entry.contract.task_id)
-      .filter((e) => e.contract.name === entry.contract.name)
-      .flatMap((e) => e.toolEvents);
+  /**
+   * Events that count toward a budget. Without a window, a budget covers every
+   * attempt of the contract for one task (retries can't refill it). With
+   * `window_ms`, it is a rate across every task this worker runs under the
+   * contract, so minting new task IDs can't reset it.
+   */
+  private usageEvents(entry: AttemptEntry, acrossTasks: boolean): ToolEvent[] {
+    const c = entry.contract;
+    const attempts = acrossTasks
+      ? this.ledger.entries().filter((e) => e.contract.worker === c.worker)
+      : this.ledger.forTask(c.task_id);
+    return attempts.filter((e) => e.contract.name === c.name).flatMap((e) => e.toolEvents);
   }
 
   private saveState(): void {
-    this.stateStore?.save({
+    if (!this.stateStore) return;
+    const now = this.now().getTime();
+    const revision = this.stateRevision + 1;
+    this.stateStore.save({
       version: 1,
+      revision,
       attempts: this.ledger.entries(),
-      approvals: [...this.approvals.values()],
+      // Expired approvals can never be redeemed; don't carry them forever.
+      approvals: [...this.approvals.values()].filter((r) => Date.parse(r.approval.expires_at) >= now),
       receipts: [...this.issuedReceipts.values()],
     });
+    this.stateRevision = revision;
   }
 
   private sign(receipt: Receipt): Receipt {

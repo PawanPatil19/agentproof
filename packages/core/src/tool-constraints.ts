@@ -34,7 +34,7 @@ function readPath(value: unknown, path: string): unknown {
 }
 
 /** Tolerate binary floating-point noise (0.1 + 0.2) without letting real overspend through. */
-const exceeds = (value: number, limit: number) => value - limit > 1e-9 * Math.max(1, Math.abs(limit));
+export const exceeds = (value: number, limit: number) => value - limit > 1e-9 * Math.max(1, Math.abs(limit));
 
 /**
  * Sum the authority already used for `tool` from earlier events. Blocked calls

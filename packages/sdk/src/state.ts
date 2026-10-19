@@ -14,6 +14,7 @@
  * database with row locks.
  */
 import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import type { Decision } from "@agentproof/core";
 import type { AttemptEntry } from "./ledger.ts";
@@ -26,6 +27,8 @@ export interface IssuedReceiptRef {
   output_sha256: string;
   policy_digest: string;
   evaluated_decision: Decision;
+  /** The contract attempt this receipt settles, for worker completions. */
+  attempt_id?: string;
 }
 
 export interface ApprovalRecord {
@@ -35,6 +38,8 @@ export interface ApprovalRecord {
 
 export interface VerifierState {
   version: 1;
+  /** Increases by one on every save. A store refuses a save that doesn't follow the revision it holds. */
+  revision: number;
   attempts: AttemptEntry[];
   approvals: ApprovalRecord[];
   receipts: IssuedReceiptRef[];
@@ -43,7 +48,12 @@ export interface VerifierState {
 export interface StateStore {
   /** The last saved state, or `undefined` if nothing was ever saved. Throws if the saved state is unreadable. */
   load(): VerifierState | undefined;
-  /** Replace the saved state. Must be durable when it returns. */
+  /**
+   * Replace the saved state. Must be durable when it returns, and must throw
+   * unless `state.revision` is exactly one more than the saved revision (0 if
+   * none): a verifier working from a stale copy, such as a second verifier on
+   * the same store, must not overwrite newer state.
+   */
   save(state: VerifierState): void;
 }
 
@@ -54,6 +64,7 @@ export function assertVerifierState(value: unknown, source = "state"): asserts v
     v !== null &&
     typeof v === "object" &&
     v.version === 1 &&
+    Number.isInteger(v.revision) &&
     Array.isArray(v.attempts) &&
     Array.isArray(v.approvals) &&
     Array.isArray(v.receipts) &&
@@ -63,9 +74,22 @@ export function assertVerifierState(value: unknown, source = "state"): asserts v
   if (!ok) throw new Error(`AgentProof ${source} is not a valid verifier state (version 1). Refusing to start with it.`);
 }
 
-/** Keeps a serialized copy, so a second verifier on the same store behaves like a restarted process. */
+/** Thrown when a save does not follow the stored revision: another verifier changed the state. */
+export class StateConflictError extends Error {
+  constructor(expected: number, found: number) {
+    super(`AgentProof state changed underneath this verifier (expected revision ${expected}, found ${found}). Another verifier is using the same store; restart to reload.`);
+    this.name = "StateConflictError";
+  }
+}
+
+function assertNext(saved: number, next: number): void {
+  if (next !== saved + 1) throw new StateConflictError(next - 1, saved);
+}
+
+/** Keeps a serialized copy. A verifier created on a used store resumes like a restarted process. */
 export class MemoryStateStore implements StateStore {
   private json?: string;
+  private revision = 0;
   load(): VerifierState | undefined {
     if (this.json === undefined) return undefined;
     const state: unknown = JSON.parse(this.json);
@@ -73,7 +97,9 @@ export class MemoryStateStore implements StateStore {
     return state;
   }
   save(state: VerifierState): void {
+    assertNext(this.revision, state.revision);
     this.json = JSON.stringify(state);
+    this.revision = state.revision;
   }
 }
 
@@ -103,9 +129,13 @@ export class FileStateStore implements StateStore {
   }
 
   save(state: VerifierState): void {
-    mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
-    const tmp = `${this.path}.${process.pid}.tmp`;
-    const fd = openSync(tmp, "w", 0o600);
+    // Catches a stale verifier. Not a lock: two processes racing between this
+    // read and the rename can still both write, so keep one process per file.
+    assertNext(this.load()?.revision ?? 0, state.revision);
+    const dir = dirname(this.path);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const tmp = `${this.path}.${process.pid}.${randomUUID()}.tmp`;
+    const fd = openSync(tmp, "wx", 0o600);
     try {
       writeSync(fd, `${JSON.stringify(state)}\n`);
       fsyncSync(fd);
@@ -113,5 +143,16 @@ export class FileStateStore implements StateStore {
       closeSync(fd);
     }
     renameSync(tmp, this.path);
+    // Make the rename itself durable, or a power loss can bring back spent budget.
+    try {
+      const dirFd = openSync(dir, "r");
+      try {
+        fsyncSync(dirFd);
+      } finally {
+        closeSync(dirFd);
+      }
+    } catch {
+      // Some platforms (Windows) can't open or fsync a directory.
+    }
   }
 }

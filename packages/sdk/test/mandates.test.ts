@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { parsePolicy, type Mode } from "@agentproof/core";
-import { createVerifier, FileStateStore, MemoryStateStore, ToolBlockedError, type StateStore } from "@agentproof/sdk";
+import { createVerifier, FileStateStore, MemoryStateStore, StateConflictError, ToolBlockedError, type StateStore } from "@agentproof/sdk";
 import { clock } from "./helpers.ts";
 
 const PAYER = "agent://payer-1";
@@ -139,6 +139,51 @@ describe("mandates: argument constraints in the tool guard", () => {
     assert.deepEqual(receipt.tool_events.map((e) => [e.reason_code, e.consumed?.total]), [["TOOL_LIMIT_EXCEEDED", 80], ["TOOL_LIMIT_EXCEEDED", 110]]);
   });
 
+  it("the tool runs on the checked copy: getters and later mutation can't change it", async () => {
+    const { proof, paid, pay } = await setup();
+    const contract = proof.acceptContract(proof.issueContract("pay_invoice", { taskId: "inv-1", worker: PAYER, coordinator: BOSS }), { identity: PAYER });
+    const tools = proof.guardTools(async (_tool, args) => {
+      await new Promise((r) => setImmediate(r)); // give the agent a chance to mutate
+      paid.push(args);
+    }, contract, { identity: PAYER });
+
+    let armed = false;
+    const sneaky = { to: "merchant-a", currency: "SGD", get amount() { return armed ? 100_000 : 10; } };
+    const p1 = tools("payments.send", sneaky);
+    armed = true;
+    await p1;
+    const mutable = send(10);
+    const p2 = tools("payments.send", mutable);
+    mutable.amount = 99_999;
+    mutable.to = "attacker";
+    await p2;
+    assert.deepEqual(paid, [send(10), send(10)]);
+    assert.ok(Object.isFrozen(paid[0]));
+    await assert.rejects(pay(contract)("payments.send", { ...send(1), cb: () => 1 }), (e) => reasonOf(e) === "TOOL_ARGS_INVALID");
+  });
+
+  it("observe mode still meters a call that also broke a lifecycle rule", async () => {
+    const { proof, pay } = await setup({ mode: "observe" });
+    const proposed = proof.issueContract("pay_invoice", { taskId: "inv-1", worker: PAYER, coordinator: BOSS });
+    await pay(proposed)("payments.send", send(40)); // before acceptance
+    const contract = proof.acceptContract(proposed, { identity: PAYER });
+    await pay(contract)("payments.send", send(40));
+    const receipt = await proof.verifyCompletion({ contract, output: {}, identity: PAYER });
+    assert.deepEqual(receipt.tool_events.map((e) => e.consumed?.total), [40, 80]);
+    assert.equal(receipt.tool_events[0]?.reason_code, "CONTRACT_NOT_ACCEPTED");
+  });
+
+  it("with window_ms the limit spans tasks, so new task IDs don't reset it", async () => {
+    const policy = policyText(100).replace("max_calls: 5", "max_calls: 5\n        window_ms: 86400000");
+    const { proof, paid, pay } = await setup({ policy });
+    const one = proof.acceptContract(proof.issueContract("pay_invoice", { taskId: "inv-1", worker: PAYER, coordinator: BOSS }), { identity: PAYER });
+    await pay(one)("payments.send", send(50));
+    await pay(one)("payments.send", send(50));
+    const two = proof.acceptContract(proof.issueContract("pay_invoice", { taskId: "inv-2", worker: PAYER, coordinator: BOSS }), { identity: PAYER });
+    await assert.rejects(pay(two)("payments.send", send(10)), (e) => reasonOf(e) === "TOOL_LIMIT_EXCEEDED");
+    assert.equal(paid.length, 2);
+  });
+
   it("concurrent calls cannot both spend the last of the budget", async () => {
     const { proof, paid, pay } = await setup({ policy: policyText(50) });
     const contract = proof.acceptContract(proof.issueContract("pay_invoice", { taskId: "inv-1", worker: PAYER, coordinator: BOSS }), { identity: PAYER });
@@ -207,7 +252,7 @@ enforcement: { on_required_check_fail: review }
     // Simulate a crash after 'submitted' was saved but before the receipt existed.
     const saved = state.load()!;
     saved.attempts[0]!.state = "submitted";
-    state.save(saved);
+    state.save({ ...saved, revision: saved.revision + 1 });
     const b = await setup({ state });
     assert.equal(b.proof.stateOf(contract), "rejected");
     assert.ok(b.proof.retry(contract));
@@ -219,6 +264,37 @@ enforcement: { on_required_check_fail: review }
     const contract = a.proof.acceptContract(a.proof.issueContract("pay_invoice", { taskId: "inv-1", worker: PAYER, coordinator: BOSS }), { identity: PAYER });
     const b = await setup({ state, policy: policyText(1000) });
     await assert.rejects(b.pay(contract)("payments.send", send(1)), (e) => reasonOf(e) === "CONTRACT_POLICY_CHANGED");
+  });
+
+  it("a second verifier on the same store can't spend from a stale copy", async () => {
+    const state = new MemoryStateStore();
+    const a = await setup({ state, policy: policyText(100) });
+    const contract = a.proof.acceptContract(a.proof.issueContract("pay_invoice", { taskId: "inv-1", worker: PAYER, coordinator: BOSS }), { identity: PAYER });
+    const b = await setup({ state, policy: policyText(100) });
+    await a.pay(contract)("payments.send", send(50));
+    await assert.rejects(b.pay(contract)("payments.send", send(50)), StateConflictError);
+    await a.pay(contract)("payments.send", send(50));
+    assert.equal(a.paid.length + b.paid.length, 2);
+  });
+
+  it("a completion whose receipt was recorded before a crash restores as settled", async () => {
+    const state = new MemoryStateStore();
+    let crash!: () => void;
+    let n = 0;
+    const proof = await createVerifier({
+      policy: parsePolicy(policyText()),
+      state,
+      newId: () => `x${++n}`,
+      store: { save: () => new Promise<void>((_resolve, reject) => (crash = () => reject(new Error("killed")))) },
+    });
+    const contract = proof.acceptContract(proof.issueContract("pay_invoice", { taskId: "inv-1", worker: PAYER, coordinator: BOSS }), { identity: PAYER });
+    void proof.verifyCompletion({ contract, output: {}, identity: PAYER }).catch(() => {});
+    await new Promise((r) => setImmediate(r));
+    // The process "dies" here: the receipt ref is saved, the attempt is still 'submitted'.
+    const b = await setup({ state });
+    assert.equal(b.proof.stateOf(contract), "validated");
+    assert.throws(() => b.proof.retry(contract), /already validated/);
+    crash();
   });
 
   it("if usage cannot be saved, the tool does not run", async () => {

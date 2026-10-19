@@ -1,7 +1,7 @@
 // Argument constraints: what a worker may do *with* a tool, checked purely.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { compilePolicy, evaluateToolCall, PolicyError, usageOf, type ToolConstraint, type ToolEvent } from "@agentproof/core";
+import { compilePolicy, contractInstanceDigest, evaluateToolCall, PolicyError, usageOf, verifyRun, type ContractInstance, type ToolConstraint, type ToolEvent } from "@agentproof/core";
 
 const policyWith = (constraint: ToolConstraint, allowed = ["payments.send"]) =>
   compilePolicy({
@@ -100,5 +100,31 @@ describe("usageOf", () => {
     const events = [ev("2026-10-18T11:00:00Z", 10), ev("2026-10-19T11:30:00Z", 20), ev(undefined, 5)];
     assert.deepEqual(usageOf(events, "payments.send", now, 3_600_000), { calls: 2, total: 25 });
     assert.deepEqual(usageOf(events, "payments.send", now), { calls: 3, total: 35 });
+  });
+});
+
+describe("tools.permission re-checks recorded usage", () => {
+  const policy = policyWith({ amount_field: "amount", max_per_call: 50, max_total: 80, max_calls: 3 });
+  const terms = {
+    name: "pay", version: 1, definition_digest: policy.contracts.get("pay")!.definitionDigest, task_id: "t", attempt_id: "a1", attempt: 1,
+    coordinator: "agent://a", worker: "agent://b", issued_at: "2026-10-19T10:00:00Z", deadline_at: "2026-10-19T11:00:00Z",
+  };
+  const digest = contractInstanceDigest(terms);
+  const contract: ContractInstance = { ...terms, digest, acceptance: { identity: "agent://b", digest, at: "2026-10-19T10:00:01Z" } };
+  const run = (events: ToolEvent[]) =>
+    verifyRun(
+      { api_version: "agentproof/v1", run_id: "r", task_id: "t", boundary: "worker_completion", output: { claims: [] }, evidence: [], contract, tool_events: events, submitted_at: "2026-10-19T10:30:00Z" },
+      { policy, mode: "enforce" },
+    );
+  const ev = (amount?: number): ToolEvent => ({ tool: "payments.send", agent: "agent://b", at: "2026-10-19T10:10:00Z", outcome: "invoked", ...(amount === undefined ? {} : { amount }) });
+  const codes = (events: ToolEvent[]) => run(events).checks.filter((c) => c.check === "tools.permission").map((c) => c.reason);
+
+  it("an envelope without reason codes still fails when amounts break the limits", () => {
+    assert.deepEqual(codes([ev(40)]), ["OK"]);
+    assert.deepEqual(codes([ev(5000)]), ["TOOL_LIMIT_EXCEEDED"]);
+    assert.deepEqual(codes([ev(40), ev(41)]), ["TOOL_LIMIT_EXCEEDED"]);
+    assert.deepEqual(codes([ev(1), ev(1), ev(1), ev(1)]), ["TOOL_LIMIT_EXCEEDED"]);
+    assert.deepEqual(codes([ev()]), ["TOOL_ARGS_INVALID"]);
+    assert.deepEqual(codes([ev(40), { ...ev(5000), outcome: "blocked", reason_code: "TOOL_LIMIT_EXCEEDED" }]), ["TOOL_LIMIT_EXCEEDED"], "the blocked attempt still fails the check");
   });
 });
