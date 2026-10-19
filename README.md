@@ -19,6 +19,12 @@ can verify.
 > policy*.** It never means true or safe. A found quote proves the source
 > contains that text, not that the claim follows from it.
 
+<p align="center">
+  <a href="docs/assets/shopping-demo.mp4"><img src="docs/assets/shopping-demo.gif" alt="Demo: a shopping agent pays through the AgentProof MCP gateway under an SGD 80 per payment, SGD 150 a day policy. Two payments go through; an over-limit laptop, an unapproved merchant, a payment past the daily total and a wallet key export are blocked before they run, and an edited receipt fails verification." width="100%"></a>
+</p>
+
+<p align="center"><sub>An agent with a wallet shops under an SGD spending limit through the MCP gateway (<code>npm run demo:shop</code>). <a href="docs/assets/shopping-demo.mp4">Watch as MP4</a>.</sub></p>
+
 ## Why not let the agent check itself?
 
 Models get better every month, so it's a fair question. A stronger model
@@ -82,6 +88,32 @@ Above: a researcher quotes a real changelog that never says what it claims,
 so the handoff is blocked and repaired. Then a researcher tries to publish
 during a drafting task; the tool never runs and nothing downstream sees the
 draft.
+
+### An agent with a spending limit
+
+```bash
+npm run demo:shop
+```
+
+A shopping agent pays merchants through the [MCP gateway](packages/mcp-gateway).
+The agent is a plain MCP client with no AgentProof code; the household's
+[policy](examples/shopping-agent/agentproof.yaml) allows SGD only, three
+approved merchants, at most SGD 80 a payment and SGD 150 a day. Of seven calls,
+three go through. The gateway stops a SGD 1,299 laptop, a merchant nobody
+approved, a payment that would pass the daily total, and a wallet key export a
+product page talked the agent into, all before they reach the payments server.
+Every call leaves a signed receipt, and a receipt edited to say "allow" fails
+verification:
+
+```bash
+npm run agentproof -- verify-receipt examples/shopping-agent/out/laptop-edited.json \
+  --public-key examples/shopping-agent/out/issuer.pub
+# ✗ not verified: the receipt was edited after it was sealed
+```
+
+The agent is scripted rather than a model, so every run makes the same calls.
+The video is regenerated with `python3 scripts/record-shop-demo.py` (needs
+[agg](https://github.com/asciinema/agg) and ffmpeg).
 
 ## What you get for every decision
 
@@ -290,13 +322,13 @@ packages/sdk              runtime gates: contracts, tool guard, judge wiring, ap
 packages/cli              the agentproof command
 packages/judge-anthropic  reference independent judge backed by Claude
 packages/mcp-gateway      MCP proxy: gates every tool call of any MCP client and writes a receipt
-examples/                 research-handoff: the two-agent reference app
+examples/                 research-handoff: the two-agent reference app; shopping-agent: spending limits through the MCP gateway
 fixtures/                 30 reviewed failure-mode runs and a provider response
 docs/                     GETTING_STARTED, DESIGN, CRITIQUE, images
 ```
 
 ```bash
-npm test        # 197 tests
+npm test        # 230 tests
 npm run bench   # 20 claims, ~1 MB evidence, 1,000 runs → p95 ≈ 35 ms
 npm run build   # TypeScript project references → dist/
 ```

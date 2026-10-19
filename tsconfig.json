@@ -18,6 +18,9 @@
     },
     {
       "path": "examples/research-handoff"
+    },
+    {
+      "path": "examples/shopping-agent"
     }
   ]
 }

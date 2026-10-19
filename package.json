@@ -13,7 +13,8 @@
     "packages/cli",
     "packages/judge-anthropic",
     "packages/mcp-gateway",
-    "examples/research-handoff"
+    "examples/research-handoff",
+    "examples/shopping-agent"
   ],
   "scripts": {
     "build": "tsc -b",
@@ -21,6 +22,7 @@
     "typecheck": "tsc -b --pretty",
     "test": "node --experimental-strip-types --no-warnings --conditions=source --test \"packages/*/test/*.test.ts\" \"examples/*/test/*.test.ts\"",
     "demo": "node --experimental-strip-types --no-warnings --conditions=source examples/research-handoff/src/run.ts",
+    "demo:shop": "node --experimental-strip-types --no-warnings --conditions=source examples/shopping-agent/src/run.ts",
     "bench": "node --experimental-strip-types --no-warnings --conditions=source scripts/bench.ts",
     "agentproof": "node --experimental-strip-types --no-warnings --conditions=source packages/cli/src/index.ts",
     "vectors": "node --experimental-strip-types --no-warnings --conditions=source scripts/make-receipt-vectors.ts"
