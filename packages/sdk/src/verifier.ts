@@ -352,8 +352,8 @@ export class Verifier {
       return { reason: "CONTRACT_STATE_INVALID", message: `Contract attempt is '${entry.state}'; no further tool calls allowed.` };
     }
     if (this.now().getTime() > Date.parse(c.deadline_at)) return { reason: "CONTRACT_EXPIRED", message: "Contract deadline has passed." };
-    const allowed = this.policy.contracts.get(c.name)?.definition.allowed_tools;
-    if (allowed && !allowed.includes(tool)) return { reason: "TOOL_NOT_ALLOWED", message: `'${tool}' is not in allowed_tools for ${c.name}.` };
+    const allowed = this.policy.contracts.get(c.name)?.allowedTools;
+    if (allowed !== "any" && !allowed?.has(tool)) return { reason: "TOOL_NOT_ALLOWED", message: `'${tool}' is not in allowed_tools for ${c.name} (tools are denied by default).` };
     return undefined;
   }
 

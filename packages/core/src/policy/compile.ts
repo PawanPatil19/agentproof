@@ -57,6 +57,11 @@ export interface CompiledContract {
   definition: ContractDefinition;
   /** Pins the exact obligations; any edit to the definition changes it. */
   definitionDigest: string;
+  /**
+   * Tools the worker may call. Deny by default: a contract without
+   * `allowed_tools` permits none; `["*"]` is the explicit opt-in to any tool.
+   */
+  allowedTools: ReadonlySet<string> | "any";
   validateOutput?: ValidateFunction;
 }
 
@@ -161,10 +166,17 @@ export function compilePolicy(doc: unknown): CompiledPolicy {
     }
     if (definition.allowed_tools && registryTools) {
       for (const tool of definition.allowed_tools) {
-        if (!registryTools.has(tool)) issues.push({ path: `${path}/allowed_tools`, message: `tool '${tool}' is not in registry.tools` });
+        if (tool !== "*" && !registryTools.has(tool)) issues.push({ path: `${path}/allowed_tools`, message: `tool '${tool}' is not in registry.tools` });
       }
     }
-    const compiled: CompiledContract = { name, definition, definitionDigest: contractDefinitionDigest(name, definition) };
+    const tools = definition.allowed_tools ?? [];
+    if (tools.includes("*") && tools.length > 1) issues.push({ path: `${path}/allowed_tools`, message: "'*' allows every tool; list it alone" });
+    const compiled: CompiledContract = {
+      name,
+      definition,
+      definitionDigest: contractDefinitionDigest(name, definition),
+      allowedTools: tools.includes("*") ? "any" : new Set(tools),
+    };
     if (definition.output_schema) {
       try {
         compiled.validateOutput = ajv.compile(definition.output_schema);

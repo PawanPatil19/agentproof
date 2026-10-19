@@ -121,3 +121,17 @@ describe("output hashing", () => {
     assert.notEqual(seal({ ...r, decision: "block" }).receipt_sha256, r.receipt_sha256);
   });
 });
+
+describe("tools are denied by default", () => {
+  const doc = (allowed?: string[]) => ({
+    api_version: "agentproof/v1",
+    policy: { id: "p", version: 1 },
+    contracts: { c: { version: 1, coordinator: "a", worker: "b", deadline_ms: 1000, ...(allowed ? { allowed_tools: allowed } : {}) } },
+  });
+
+  it("a contract without allowed_tools permits nothing; '*' permits anything", () => {
+    assert.deepEqual([...(compilePolicy(doc()).contracts.get("c")!.allowedTools as Set<string>)], []);
+    assert.equal(compilePolicy(doc(["*"])).contracts.get("c")!.allowedTools, "any");
+    assert.throws(() => compilePolicy(doc(["*", "docs.read"])), PolicyError);
+  });
+});

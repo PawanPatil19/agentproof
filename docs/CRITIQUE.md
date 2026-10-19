@@ -185,7 +185,7 @@ independent acceptance gate and audit record for agent handoffs.**
 | Provider-citation adapters (`fromAnthropicMessage`, `fromCitedSegments`) | Consume native citations instead of demanding a custom envelope |
 | Independent semantic judge (opt-in) | Answers "does the claim follow from the quote?" without letting the agent grade itself: different prompt, no tools, only claim + excerpt |
 | Signed receipts (Ed25519) | A counterparty can verify a receipt without trusting the sender |
-| Deny-by-default tools when a registry exists | A security setting shouldn't default to open |
+| Deny-by-default tools (`allowed_tools: ["*"]` to opt out) | A security setting shouldn't default to open |
 
 The biggest remaining risk is platforms bundling a version of this, not
 models making it pointless. The defense is neutrality across providers and
