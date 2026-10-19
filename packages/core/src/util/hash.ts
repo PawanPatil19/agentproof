@@ -1,28 +1,44 @@
 import { createHash } from "node:crypto";
 
 /**
- * Deterministic JSON: object keys sorted recursively, `undefined` dropped.
- * Used for every digest so that key order never changes a hash.
+ * Canonical JSON per RFC 8785 (JSON Canonicalization Scheme, JCS). Used for
+ * every digest and for the signed receipt payload.
+ *
+ * For any I-JSON value the output is exactly JCS: object keys sorted by
+ * UTF-16 code units (JavaScript's default string order), numbers in
+ * ECMAScript shortest round-trip form and strings escaped only where JSON
+ * requires it (both what `JSON.stringify` emits), no whitespace.
+ * JavaScript-only values are first mapped the way `JSON.stringify` maps
+ * them (`undefined` members dropped, `toJSON` applied, NaN/Infinity to
+ * null, lone surrogates escaped as \uXXXX). Receipts never contain such
+ * values; see docs/RECEIPT_SPEC.md.
  */
 export function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortKeys(value));
+  return serialize(value) ?? "null";
 }
 
-function sortKeys(value: unknown): unknown {
+/**
+ * Write JSON by hand rather than via `JSON.stringify` on a key-sorted copy:
+ * JavaScript objects always enumerate integer-like keys ("1", "42") first,
+ * whatever order they were inserted in, which would break JCS key order.
+ * Returns undefined for values JSON omits (undefined, functions, symbols).
+ */
+function serialize(value: unknown): string | undefined {
   // Match JSON.stringify: Dates and other toJSON-capable values serialize first.
   if (value !== null && typeof value === "object" && typeof (value as { toJSON?: unknown }).toJSON === "function") {
-    return sortKeys((value as { toJSON: () => unknown }).toJSON());
+    return serialize((value as { toJSON: () => unknown }).toJSON());
   }
-  if (Array.isArray(value)) return value.map(sortKeys);
+  if (Array.isArray(value)) return `[${value.map((v) => serialize(v) ?? "null").join(",")}]`;
   if (value !== null && typeof value === "object") {
-    const out: Record<string, unknown> = {};
+    const parts: string[] = [];
     for (const key of Object.keys(value).sort()) {
-      const v = (value as Record<string, unknown>)[key];
-      if (v !== undefined) out[key] = sortKeys(v);
+      const v = serialize((value as Record<string, unknown>)[key]);
+      if (v !== undefined) parts.push(`${JSON.stringify(key)}:${v}`);
     }
-    return out;
+    return `{${parts.join(",")}}`;
   }
-  return value;
+  // Primitives: JSON.stringify already emits JCS numbers and strings.
+  return JSON.stringify(value);
 }
 
 export function sha256(text: string): string {

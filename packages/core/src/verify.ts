@@ -8,6 +8,7 @@ import { CHECKS, type CheckContext, type RawResult } from "./checks/index.ts";
 import { markRequired } from "./decide.ts";
 import { parseEnvelope } from "./envelope.ts";
 import { buildReceipt } from "./receipt.ts";
+import { commitmentKeyBytes, type CommitmentKey } from "./commitment.ts";
 import { judgeMissing } from "./semantics.ts";
 
 export interface VerifyOptions {
@@ -18,6 +19,8 @@ export interface VerifyOptions {
   now?: () => Date;
   /** Results produced outside the engine, e.g. SDK lifecycle checks. */
   extraResults?: RawResult[];
+  /** Secret for salted claim commitments; keep it to open claims to an auditor later. */
+  commitmentKey?: CommitmentKey;
 }
 
 export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
@@ -25,13 +28,15 @@ export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
   const now = options.now ?? (() => new Date());
   const { policy } = options;
   const mode = options.mode ?? policy.mode;
+  // A bad commitment key is a configuration error: fail on every call, not only on runs with claims.
+  if (options.commitmentKey !== undefined) commitmentKeyBytes(options.commitmentKey);
 
   const rejectEnvelope = (status: "fail" | "unknown", reason: "ENVELOPE_INVALID" | "CHECKER_ERROR", message: string): Receipt => {
     const runId = safeRunId(input);
     const results = markRequired([{ check: "envelope.structure", kind: "deterministic", target: "envelope", status, reason, message }], policy);
     return buildReceipt({
       runId, boundary: "final_answer", policy, mode, results, claims: [], evidence: [], toolEvents: [],
-      output: null, createdAt: now(), durationMs: performance.now() - started,
+      output: null, createdAt: now(), durationMs: performance.now() - started, commitmentKey: options.commitmentKey,
     });
   };
 
@@ -77,6 +82,7 @@ export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
     runId: envelope.run_id, taskId: envelope.task_id, boundary, policy, mode, results, claims,
     evidence: envelope.evidence ?? [], toolEvents: envelope.tool_events ?? [], contract: envelope.contract,
     output: envelope.output, createdAt: now(), durationMs: performance.now() - started,
+    commitmentKey: options.commitmentKey,
   });
 }
 

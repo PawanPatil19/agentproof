@@ -22,7 +22,8 @@
     "test": "node --experimental-strip-types --no-warnings --conditions=source --test \"packages/*/test/*.test.ts\" \"examples/*/test/*.test.ts\"",
     "demo": "node --experimental-strip-types --no-warnings --conditions=source examples/research-handoff/src/run.ts",
     "bench": "node --experimental-strip-types --no-warnings --conditions=source scripts/bench.ts",
-    "agentproof": "node --experimental-strip-types --no-warnings --conditions=source packages/cli/src/index.ts"
+    "agentproof": "node --experimental-strip-types --no-warnings --conditions=source packages/cli/src/index.ts",
+    "vectors": "node --experimental-strip-types --no-warnings --conditions=source scripts/make-receipt-vectors.ts"
   },
   "devDependencies": {
     "@types/node": "22.15.30",

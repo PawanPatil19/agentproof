@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import {
   amendReceipt,
   baselinePolicy,
+  commitmentKeyBytes,
   contractInstanceDigest,
   evaluateToolCall,
   hashOutput,
@@ -24,6 +25,7 @@ import {
   usageOf,
   verifyRun,
   type CheckResult,
+  type CommitmentKey,
   type CompiledPolicy,
   type ContractInstance,
   type EvidenceRecord,
@@ -63,6 +65,12 @@ export interface VerifierOptions {
   judge?: Judge;
   /** Ed25519 private key (PKCS#8 PEM). When set, every receipt is signed before it is stored. */
   signingKeyPem?: string;
+  /**
+   * Secret from which per-claim salts are derived (see `generateCommitmentKey`).
+   * Keep it to open a claim to an auditor later with `discloseClaim`. Omitted,
+   * each receipt uses a random key and claims can't be opened.
+   */
+  commitmentKey?: CommitmentKey;
   /** Where receipts go. `false` disables persistence (tests, ephemeral runs). */
   store?: ReceiptStore | false;
   /**
@@ -132,6 +140,7 @@ export class Verifier {
   private readonly identities?: Record<string, string[]>;
   private readonly judge?: Judge;
   private readonly signingKeyPem?: string;
+  private readonly commitmentKey?: CommitmentKey;
   private readonly now: () => Date;
   private readonly newId: () => string;
   private readonly stateStore?: StateStore;
@@ -148,6 +157,8 @@ export class Verifier {
     this.identities = options.identities;
     this.judge = options.judge;
     this.signingKeyPem = options.signingKeyPem;
+    // Validate at configuration time so a bad key never surfaces mid-run.
+    this.commitmentKey = options.commitmentKey === undefined ? undefined : commitmentKeyBytes(options.commitmentKey);
     this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? (() => randomUUID().replace(/-/g, "").slice(0, 16));
     this.stateStore = options.state;
@@ -334,7 +345,7 @@ export class Verifier {
     };
     extra.push(...(await this.judged(envelope)));
     const attemptId = entry && firstSubmission ? entry.contract.attempt_id : undefined;
-    const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra }), attemptId);
+    const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra, commitmentKey: this.commitmentKey }), attemptId);
     // Only settle an attempt that is still ours to settle.
     if (entry && firstSubmission && entry.state === "submitted") {
       entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
@@ -357,7 +368,7 @@ export class Verifier {
       submitted_at: this.now().toISOString(),
     };
     const extraResults = await this.judged(envelope);
-    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults }));
+    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults, commitmentKey: this.commitmentKey }));
   }
 
   // ── Review ─────────────────────────────────────────────────────────────────

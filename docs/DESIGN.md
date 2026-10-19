@@ -207,7 +207,9 @@ refused. An approval binds to that receipt and output hash, expires after
 A receipt contains IDs, hashes, locators, versions, every check result,
 coverage, tool events and the decision, sealed with `receipt_sha256`.
 
-By default it **omits** evidence bodies and claim text (hashes instead),
+By default it **omits** evidence bodies and claim text (salted HMAC
+commitments instead, so a short claim can't be confirmed by hashing
+guesses; the issuer can open one claim to an auditor with its salt),
 strips credentials, query strings and fragments from locators of every
 scheme (`https`, `s3`, `ftp`, plain paths), and redacts and length-caps every
 agent-controlled string — IDs, targets, messages, tool names. Identifiers
@@ -215,10 +217,13 @@ are restricted to a plain character set at the envelope boundary. `privacy.captu
 Receipts are written atomically with mode `0600` in a `0700` directory.
 
 A seal detects edits, not tampering: anyone who can rewrite the file can
-re-seal it. A **signature** fixes that: Ed25519 over `receipt_sha256`
-(which covers every other field), with a key ID derived from the public key.
-The signature sits outside the digest, and re-sealing drops a stale one.
-`verifyReceiptSignature` checks digest, key ID and signature, in that order.
+re-seal it. A **signature** fixes that: an Ed25519 **DSSE** signature over
+the receipt as an **in-toto Statement** (RFC 8785 canonical JSON), with a
+key ID derived from the public key. The signature sits outside the digest,
+and re-sealing drops a stale one. `verifyReceiptSignature` checks digest,
+key ID and signature, in that order; `toDsseEnvelope` / `fromDsseEnvelope`
+convert to the standard envelope so other tools can verify it. The full
+format, with conformance vectors, is in [RECEIPT_SPEC.md](RECEIPT_SPEC.md).
 
 The HTML report is fully static: no scripts, a CSP that also forbids forms
 and `<base>`, every string escaped, class names drawn from fixed sets, links

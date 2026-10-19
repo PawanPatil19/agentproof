@@ -59,7 +59,11 @@ argument, including what this project deliberately doesn't do, is in
 
 Every gate writes a **receipt**: a sealed JSON record of every check, the
 policy version and the decision. It holds hashes and IDs, not your content,
-and it can be **signed** with Ed25519.
+and it can be **signed**: an Ed25519 DSSE signature over an in-toto
+statement, so anyone can check it with standard tooling. Claim text is
+committed with per-claim salts, so a receipt can't be used to confirm a
+guessed claim. The format is in [docs/RECEIPT_SPEC.md](docs/RECEIPT_SPEC.md),
+with test vectors.
 
 ## See it work
 
@@ -205,22 +209,27 @@ model works through the `Judge` interface.
 npm run agentproof -- keys generate --out keys
 npm run agentproof -- check run.json --policy agentproof.yaml --sign-key keys/agentproof-signing.key
 npm run agentproof -- verify-receipt agentproof-reports/run.json --public-key keys/agentproof-signing.pub
+# the same receipt as a standard DSSE envelope
+npm run agentproof -- verify-receipt agentproof-reports/run.dsse.json --public-key keys/agentproof-signing.pub
 ```
 
-In code: `createVerifier({ signingKeyPem })` signs every receipt. A
-counterparty checks it with `verifyReceiptSignature(receipt, publicKey)`.
+In code: `createVerifier({ signingKeyPem, commitmentKey })` signs every
+receipt. A counterparty checks it with `verifyReceiptSignature(receipt, publicKey)`,
+or any DSSE verifier with `toDsseEnvelope(receipt)`. Keep the commitment key
+(`generateCommitmentKey()`) if you may need to open a claim to an auditor
+later with `discloseClaim`; see [docs/RECEIPT_SPEC.md](docs/RECEIPT_SPEC.md).
 
 ## CLI
 
 | Command | Purpose | Exit |
 | --- | --- | --- |
 | `inspect <run.json>` | Diagnose with the baseline preset; never blocks | 0 |
-| `check <run.json> --policy f [--mode] [--sign-key]` | CI gate | 0 allow · 2 block/review · 3 error |
+| `check <run.json> --policy f [--mode] [--sign-key] [--commitment-key]` | CI gate | 0 allow · 2 block/review · 3 error |
 | `report <receipt.json> [--run run.json]` | Render a receipt as HTML | 0 · 3 |
 | `init [--template research-handoff]` | Write a starter policy (observe mode) | 0 |
 | `policy validate <file>` | Compile and validate a policy | 0 · 3 |
 | `keys generate` | Create an Ed25519 signing key pair | 0 |
-| `verify-receipt <r> --public-key f` | Check who issued a receipt, and that it's unedited | 0 · 2 |
+| `verify-receipt <r or r.dsse.json> --public-key f` | Check who issued a receipt, and that it's unedited | 0 · 2 |
 | `prune [--days 7]` | Delete receipts past retention | 0 |
 
 `npm run agentproof -- <command>` runs from source. For an `agentproof`

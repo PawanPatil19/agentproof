@@ -79,10 +79,33 @@ export function sanitizeLocator(locator: string): string {
     }
   }
   out = out.split(/[?#]/, 1)[0] ?? "";
-  return redact(out).slice(0, 300);
+  return wellFormed(redact(out).slice(0, 300));
 }
 
 /** Redact and cap an identifier or short message before it is persisted. */
 export function safeText(text: string, max = 500): string {
-  return redact(text).slice(0, max);
+  return wellFormed(redact(text).slice(0, max));
+}
+
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * Replace lone UTF-16 surrogates (from hostile input, or a cap that split an
+ * emoji) with U+FFFD, so every persisted string is valid Unicode and the
+ * receipt stays RFC 8785-canonicalizable in any language.
+ */
+export function wellFormed(text: string): string {
+  return text.replace(LONE_SURROGATE, "\uFFFD");
+}
+
+/** `wellFormed` applied to every string (keys included) in a JSON-like value. */
+export function wellFormedDeep<T>(value: T): T {
+  if (typeof value === "string") return wellFormed(value) as T;
+  if (Array.isArray(value)) return value.map((v) => wellFormedDeep(v)) as T;
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[wellFormed(k)] = wellFormedDeep(v);
+    return out as T;
+  }
+  return value;
 }

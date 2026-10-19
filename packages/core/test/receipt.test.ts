@@ -13,7 +13,7 @@ const run = (name: string) => JSON.parse(read(`runs/${name}.json`));
 describe("receipts", () => {
   it("carry ids, versions, digests, coverage and per-check reasons", () => {
     const r = verifyRun(run("missing-evidence-id"), { policy });
-    assert.equal(r.receipt_version, "agentproof.receipt/v1");
+    assert.equal(r.receipt_version, "agentproof.receipt/v2");
     assert.equal(r.run_id, "fx-missing-evidence-id");
     assert.equal(r.task_id, "task-42");
     assert.equal(r.policy.id, "research-handoff");
