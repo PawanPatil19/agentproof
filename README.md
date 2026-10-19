@@ -269,7 +269,9 @@ made advisory. A call that breaks a tool constraint is refused with
 `TOOL_ARGS_INVALID` or `TOOL_LIMIT_EXCEEDED` before the tool runs, and each
 tool event in the receipt records the metered `amount` and the authority
 `consumed` so far. Usage is saved before the tool runs; if it can't be
-saved, the call doesn't happen. The full commented template comes from `agentproof init`.
+saved, the call doesn't happen. The MCP gateway issues one task per tool
+call, so behind it use `window_ms` to make `max_total` and `max_calls` hold
+across calls. The full commented template comes from `agentproof init`.
 
 ## Repository
 
@@ -285,7 +287,7 @@ docs/                     GETTING_STARTED, DESIGN, CRITIQUE, images
 ```
 
 ```bash
-npm test        # 158 tests
+npm test        # 197 tests
 npm run bench   # 20 claims, ~1 MB evidence, 1,000 runs → p95 ≈ 35 ms
 npm run build   # TypeScript project references → dist/
 ```
