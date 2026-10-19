@@ -18,12 +18,15 @@ export {
   PolicyError,
   type CompiledPolicy,
   type CompiledContract,
+  type CompiledToolConstraint,
   type ContractDefinition,
+  type ToolConstraint,
   type PolicyDocument,
   type PolicyIssue,
 } from "./policy/compile.ts";
 export { BASELINE_POLICY, RESEARCH_HANDOFF_TEMPLATE, TEMPLATES, baselinePolicy, templatePolicy } from "./policy/presets.ts";
 export { contractInstanceDigest, type ContractTerms } from "./contract.ts";
+export { evaluateToolCall, usageOf, type ToolCallVerdict, type ToolUsage } from "./tool-constraints.ts";
 export { CHECK_IDS, INTEGRITY_CHECKS, isCheckId, type CheckId, type RawResult } from "./checks/index.ts";
 export { canonicalJson, digestOf, sha256 } from "./util/hash.ts";
 export { classifyLocator, normalizeForMatch, redact, safeText, sanitizeLocator, wellFormed, wellFormedDeep } from "./util/text.ts";

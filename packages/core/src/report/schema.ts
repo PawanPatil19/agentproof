@@ -66,7 +66,7 @@ const RECEIPT_SCHEMA = {
     evidence: { type: "array", items: { type: "object", required: ["id"], properties: { id: str, source_id: str, locator: str, content_sha256: str, published_at: str, revision: str } } },
     tool_events: {
       type: "array",
-      items: { type: "object", required: ["tool", "agent"], properties: { tool: str, agent: str, at: str, outcome: { enum: ["invoked", "blocked"] }, reason: str, reason_code: str } },
+      items: { type: "object", required: ["tool", "agent"], properties: { tool: str, agent: str, at: str, outcome: { enum: ["invoked", "blocked"] }, reason: str, reason_code: str, amount: { type: "number" }, consumed: { type: "object", required: ["calls"], properties: { calls: { type: "integer", minimum: 0 }, total: { type: "number" } } } } },
     },
     output_sha256: str,
     receipt_sha256: str,

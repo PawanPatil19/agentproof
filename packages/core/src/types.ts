@@ -65,6 +65,14 @@ export interface ToolEvent {
   reason?: string;
   /** Set by the guard when the call violated the contract (even if observe mode let it run). */
   reason_code?: ReasonCode;
+  /** The value of the tool's `amount_field`, when the contract meters this tool. */
+  amount?: number;
+  /**
+   * Authority used so far for this tool under the task's contract, including
+   * this call if it ran: calls made and (when metered) the summed amount.
+   * Counts cover the constraint's `window_ms` when one is set.
+   */
+  consumed?: { calls: number; total?: number };
 }
 
 /** A contract instance as issued to one worker for one attempt. */
@@ -138,6 +146,8 @@ export type ReasonCode =
   | "NUMERIC_UNIT_MISMATCH"
   | "NUMERIC_VALUE_MISSING"
   | "TOOL_NOT_ALLOWED"
+  | "TOOL_ARGS_INVALID"
+  | "TOOL_LIMIT_EXCEEDED"
   | "CONTRACT_MISSING"
   | "CONTRACT_UNKNOWN"
   | "CONTRACT_NOT_ACCEPTED"

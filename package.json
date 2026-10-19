@@ -12,6 +12,7 @@
     "packages/sdk",
     "packages/cli",
     "packages/judge-anthropic",
+    "packages/mcp-gateway",
     "examples/research-handoff"
   ],
   "scripts": {

@@ -4,6 +4,24 @@
  */
 const decision = { enum: ["allow", "block", "review"] };
 const idList = { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: true };
+const fieldPath = { type: "string", pattern: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$" };
+const toolConstraint = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    args_schema: { type: "object" },
+    allowed_values: {
+      type: "object",
+      propertyNames: fieldPath,
+      additionalProperties: { type: "array", minItems: 1, items: { type: ["string", "number", "boolean"] }, uniqueItems: true },
+    },
+    amount_field: fieldPath,
+    max_per_call: { type: "number", exclusiveMinimum: 0 },
+    max_total: { type: "number", exclusiveMinimum: 0 },
+    max_calls: { type: "integer", minimum: 1 },
+    window_ms: { type: "integer", minimum: 1 },
+  },
+};
 
 export const POLICY_SCHEMA = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -92,6 +110,7 @@ export const POLICY_SCHEMA = {
           worker: { type: "string", minLength: 1 },
           deadline_ms: { type: "integer", minimum: 1 },
           allowed_tools: idList,
+          tool_constraints: { type: "object", propertyNames: { minLength: 1 }, additionalProperties: toolConstraint },
           output_schema: { type: "object" },
         },
       },

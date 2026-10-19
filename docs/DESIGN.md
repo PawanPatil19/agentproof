@@ -241,6 +241,15 @@ checks.
 
 ## Deferred, deliberately
 
-Automatic claim extraction, MCP gateway, OpenTelemetry export, SQLite or
-encrypted snapshots, hosted dashboard, signed contracts, Python SDK. The
-`ReceiptStore` and `Judge` interfaces are the seams those plug into.
+Automatic claim extraction, OpenTelemetry export, SQLite, Postgres or
+encrypted state, hosted dashboard, signed contracts, Python SDK. The
+`ReceiptStore`, `StateStore` and `Judge` interfaces are the seams those plug
+into. `FileStateStore` is single-process: saves carry a revision so a stale
+verifier can't overwrite newer state, but two processes racing on one file
+can, so multi-node deployments need a database-backed `StateStore` with row
+locks.
+
+The MCP gateway (`packages/mcp-gateway`) is built on the same SDK gate: it
+issues one contract attempt per tool call, so each call gets its own receipt.
+It proxies tools only; resources, prompts and sampling are not forwarded,
+because they would reach the upstream server without passing the gate.
