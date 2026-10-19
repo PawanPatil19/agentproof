@@ -53,6 +53,16 @@ export const POLICY_SCHEMA = {
             max_source_age_days: { type: "number", exclusiveMinimum: 0 },
           },
         },
+        semantics: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            enabled: { type: "boolean" },
+            timeout_ms: { type: "integer", minimum: 100 },
+            max_claims: { type: "integer", minimum: 1 },
+            concurrency: { type: "integer", minimum: 1, maximum: 16 },
+          },
+        },
         numeric: {
           type: "object",
           additionalProperties: false,

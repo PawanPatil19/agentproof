@@ -10,6 +10,7 @@ export const CHECK_IDS = [
   "evidence.source",
   "evidence.freshness",
   "numeric.fidelity",
+  "claims.support",
   "tools.permission",
   "contract.binding",
   "contract.deadline",

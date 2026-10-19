@@ -33,6 +33,9 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   CONTRACT_EXPIRED: "The deliverable arrived after the deadline",
   CONTRACT_REPLAY: "This attempt was already submitted",
   CONTRACT_STATE_INVALID: "The contract is not in a state that accepts this action",
+  CLAIM_UNSUPPORTED: "A model assessment found the excerpt does not support the claim",
+  CLAIM_SUPPORT_UNCLEAR: "A model assessment could not decide whether the excerpt supports the claim",
+  JUDGE_UNAVAILABLE: "The semantic judge gave no verdict (timeout, error or not configured)",
   RECEIPT_PERSIST_FAILED: "The receipt could not be saved, so release is blocked",
   CHECKER_ERROR: "A check crashed and could not reach a conclusion",
 };

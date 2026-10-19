@@ -98,7 +98,7 @@ export function renderReport(receipt: Receipt, options: ReportOptions = {}): str
     ${t?.quote ? `<blockquote>${esc(t.quote)}</blockquote>` : ""}
     <p class="chips">${claim.evidence_ids.length ? claim.evidence_ids.map((e) => `<span class="chip">${esc(e)}</span>`).join("") : `<span class="muted">No evidence cited</span>`}</p>
     <ul class="results">${results
-      .map((r) => `<li>${pill(r.status)} <code>${esc(r.check)}</code>${r.required ? "" : ` <span class="tag">advisory</span>`} <span>${esc(r.message)}</span></li>`)
+      .map((r) => `<li>${pill(r.status)} <code>${esc(r.check)}</code>${r.required ? "" : ` <span class="tag">advisory</span>`}${r.kind === "probabilistic" ? ` <span class="tag model">model assessment</span>` : ""} <span>${esc(r.message)}</span></li>`)
       .join("")}</ul>
   </div>
 </details>`;
@@ -215,7 +215,7 @@ main{padding-block:28px 60px}
 h2{font-size:20px;letter-spacing:-.4px;margin:34px 0 12px}
 .pill{display:inline-block;min-width:62px;text-align:center;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:750;letter-spacing:.3px;text-transform:uppercase}
 .pill.pass{background:var(--pass-bg);color:var(--pass)}.pill.fail{background:var(--fail-bg);color:var(--fail)}.pill.unknown{background:var(--unknown-bg);color:var(--unknown)}.pill.not_applicable{background:var(--na-bg);color:var(--na)}
-.tag{font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.tag.model{border-color:var(--unknown);color:var(--unknown)}.tag{font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
 .claim{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--na);border-radius:12px;margin-bottom:10px}
 .claim.pass{border-left-color:var(--pass)}.claim.fail{border-left-color:var(--fail)}.claim.unknown{border-left-color:var(--unknown)}
 .claim summary{display:flex;gap:12px;align-items:baseline;padding:14px 16px;cursor:pointer;list-style:none}.claim summary::-webkit-details-marker{display:none}

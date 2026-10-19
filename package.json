@@ -11,6 +11,7 @@
     "packages/core",
     "packages/sdk",
     "packages/cli",
+    "packages/judge-anthropic",
     "examples/research-handoff"
   ],
   "scripts": {

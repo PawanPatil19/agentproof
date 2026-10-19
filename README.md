@@ -1,162 +1,264 @@
-# AgentProof
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="AgentProof: an independent acceptance gate for agent handoffs" width="100%">
+</p>
 
-**Every answer needs evidence. Every handoff needs a contract.**
+<p align="center">
+  <a href="https://github.com/PawanPatil19/agentproof/actions/workflows/ci.yml"><img src="https://github.com/PawanPatil19/agentproof/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/node-%E2%89%A522.6-2b815b" alt="Node 22.6+">
+  <img src="https://img.shields.io/badge/network-none%20by%20default-146b50" alt="No network by default">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-146b50" alt="MIT license"></a>
+</p>
 
-AgentProof is a local-first verification layer for AI agents. It checks what
-an agent claims against the evidence it captured, validates what one agent
-hands to another against an explicit contract, and records *why* a workflow
-was allowed to continue in a portable receipt.
+**AgentProof sits between AI agents and the things they hand work to.** Before
+a worker's tool call runs, before a coordinator reads a worker's deliverable,
+and before a person sees an answer, it checks the work against evidence and an
+explicit contract. Then it writes a receipt that anyone holding your public key
+can verify.
 
-> "Verified" always means *passed the recorded checks under a named policy*.
-> It never means true or safe. A found quote proves the source contains that
-> text — not that the claim follows from it.
+> **"Verified" always means *passed the recorded checks under a named
+> policy*.** It never means true or safe. A found quote proves the source
+> contains that text, not that the claim follows from it.
 
-Status: v0.1, local v1 slice of the [product handoff](docs/CRITIQUE.md).
-Deterministic checks only; no network calls, no accounts.
+## Why not let the agent check itself?
 
-## See it in 30 seconds
+Models get better every month, so it's a fair question. A stronger model
+fabricates fewer citations, and that part of the problem does shrink. What
+doesn't shrink is the need for a check that the agent can't influence:
+
+| Self-checking agent | AgentProof |
+| --- | --- |
+| Shares its own blind spots, context and any injected instructions | Runs outside the agent; an optional judge sees only a claim and its excerpt |
+| "I won't call the publish tool" is a promise | The tool guard refuses the call before it runs |
+| A different answer on every re-run | Deterministic checks; the same receipt on every replay |
+| Policy lives in a prompt | Policy is a versioned, reviewable YAML file |
+| A counterparty has to trust your agent's word | A counterparty verifies your signed receipt |
+| Re-reading evidence costs tokens on every run | Deterministic checks take about 35 ms and no tokens |
+
+The more autonomy agents get, the more an independent gate matters. The full
+argument, including what this project deliberately doesn't do, is in
+[docs/CRITIQUE.md](docs/CRITIQUE.md).
+
+## How it works
+
+<p align="center">
+  <img src="docs/assets/how-it-works.svg" alt="Three gates outside the agents: a tool guard before tools run, a completion gate before the coordinator reads a deliverable, and an answer gate before a person sees an answer. Each gate writes a signed receipt." width="100%">
+</p>
+
+1. **Tool guard.** Every tool call a worker makes is checked against its
+   contract before it executes. The caller's identity comes from your code,
+   never from the agent, so an agent can't borrow another agent's permissions.
+2. **Completion gate.** The worker's deliverable is checked before the
+   coordinator reads it: output schema, quotes found verbatim in the captured
+   sources, allowed sources, numbers within tolerance, the exact contract
+   accepted, the deadline met. A failed handoff comes back with a reason, so
+   the coordinator can ask for one repair.
+3. **Answer gate.** The final answer is checked before a person sees it. An
+   answer that declares no claims is not "verified".
+
+Every gate writes a **receipt**: a sealed JSON record of every check, the
+policy version and the decision. It holds hashes and IDs, not your content,
+and it can be **signed** with Ed25519.
+
+## See it work
 
 ```bash
+git clone https://github.com/PawanPatil19/agentproof.git && cd agentproof
 npm install
 npm run demo
 ```
 
-Five scenarios run through the same gated two-agent workflow
-(researcher → writer → person):
+<p align="center">
+  <img src="docs/assets/terminal-demo.png" alt="Demo output: a fabricated quote is blocked and repaired; a publish tool call is refused before it runs and the task stops." width="100%">
+</p>
 
-| Scenario | What AgentProof does |
-| --- | --- |
-| Honest researcher | Allows the handoff and the final answer |
-| Cites `src-404`, never captured | Blocks, writer requests one repair, attempt 2 passes |
-| Quotes a real source that never says it | Blocks with `QUOTE_NOT_FOUND`, repair passes |
-| Tries `publish.post` during drafting | Tool blocked *before* it runs; task stops |
-| Same, in observe mode | Tool runs, receipt records "would block" |
+The demo runs five scenarios through the same researcher → writer workflow.
+Above: a researcher quotes a real changelog that never says what it claims,
+so the handoff is blocked and repaired. Then a researcher tries to publish
+during a drafting task; the tool never runs and nothing downstream sees the
+draft.
 
-Receipts and HTML reports land in `examples/research-handoff/out/`.
+## What you get for every decision
 
-## CLI
+Each receipt renders as a self-contained HTML report: no scripts, no
+external assets, safe to open on hostile input.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/report-fabricated-quote.png" alt="Report: blocked because a quote does not appear in its cited source."></td>
+    <td width="50%"><img src="docs/assets/report-tool-blocked.png" alt="Report: blocked because the worker called a tool the contract forbids."></td>
+  </tr>
+  <tr>
+    <td><b>A quote that isn't in the source.</b> The claim cites a real document; the document never says it.</td>
+    <td><b>A forbidden tool.</b> <code>publish.post</code> was refused before it ran, and the deliverable is rejected.</td>
+  </tr>
+</table>
+
+## From a run to a decision
+
+<p align="center">
+  <img src="docs/assets/decision-model.svg" alt="A run envelope goes through checks that return pass, fail, unknown or not applicable. One rule maps them to block, review or allow." width="100%">
+</p>
+
+Checks never decide anything; they report. One rule, the same for every
+check, turns results into an action: a required **fail → block**, a required
+**unknown → review**, everything else **→ allow**. A crashed check never
+passes. In **observe** mode work continues and the receipt records what
+enforcement would have done, which is how you adopt it safely.
+
+## Quick start
+
+The [getting-started guide](docs/GETTING_STARTED.md) goes from clone to a
+signed receipt in about ten minutes, offline. In short:
 
 ```bash
-npm run agentproof -- inspect fixtures/runs/fabricated-quote.json      # diagnose, observe only
-npm run agentproof -- init                                             # starter agentproof.yaml
-npm run agentproof -- policy validate agentproof.yaml
-npm run agentproof -- check fixtures/runs/valid.json --policy fixtures/agentproof.yaml
+npm run agentproof -- inspect fixtures/runs/fabricated-quote.json   # diagnose, never blocks
+npm run agentproof -- init                                          # starter agentproof.yaml
+npm run agentproof -- check my-run.json --policy agentproof.yaml    # CI gate: exit 0 / 2 / 3
 ```
 
-`npm run agentproof --` runs the CLI straight from TypeScript source. For a
-real `agentproof` binary, run `npm run build && npm install` (npm links a
-workspace bin only once its `dist/` target exists), then use `npx agentproof`.
+## Use it in code
 
-| Command | Purpose | Exit |
-| --- | --- | --- |
-| `inspect <run.json>` | Baseline diagnostics, never fails | 0 |
-| `check <run.json> --policy f [--mode]` | CI gate | 0 allow · 2 block/review · 3 error |
-| `report <receipt.json> [--run run.json]` | Render HTML | 0 |
-| `init [--template research-handoff]` | Write a starter policy (observe mode) | 0 |
-| `policy validate <file>` | Compile a policy | 0 · 3 |
-| `prune [--days 7]` | Delete receipts past retention | 0 |
-
-## SDK
+### Gate a handoff between agents
 
 ```ts
-import { createVerifier, ToolBlockedError } from "@agentproof/sdk";
+import { createVerifier } from "@agentproof/sdk";
 
 const proof = await createVerifier({
   policyFile: "./agentproof.yaml",
   identities: { researcher: ["agent://researcher-1"], writer: ["agent://writer-1"] },
 });
 
-// Writer issues a contract; the researcher accepts its exact digest.
 let contract = proof.issueContract("research_to_writer", {
   taskId: "task-42", worker: "agent://researcher-1", coordinator: "agent://writer-1",
 });
 contract = proof.acceptContract(contract, { identity: "agent://researcher-1" });
 
-// Every tool call is checked before it runs. Identity comes from the host.
+// Every tool call is checked before it runs.
 const tools = proof.guardTools(realToolExecutor, contract, { identity: "agent://researcher-1" });
 const { output, evidence } = await researcher.run({ tools });
 
-// Gate the handoff before the writer reads it.
+// Gate the deliverable before the writer reads it.
 const receipt = await proof.verifyCompletion({ contract, output, evidence, identity: "agent://researcher-1" });
 if (receipt.decision === "allow") await writer.consume(output);
-else if (receipt.decision === "review") await reviewQueue.add(receipt);   // proof.approve(...) binds to this output
-else if (canRepair(receipt)) contract = proof.retry(contract);           // bounded, obligations re-pinned
-else stop(receipt.reason_codes);
-
-// Gate the final answer again before a person sees it.
-const final = await proof.verifyAnswer({ output: answer, evidence });
+else if (receipt.decision === "review") await reviewQueue.add(receipt);
+else contract = proof.retry(contract); // bounded; obligations are never weakened
 ```
 
-The agent must emit **explicit claims** in `output.claims`:
+The full workflow, with all three gates, is about 120 lines in
+[`examples/research-handoff/src/workflow.ts`](examples/research-handoff/src/workflow.ts).
 
-```json
-{ "claims": [{
-  "text": "The Pro plan costs $12 per member per month.",
-  "quote": "Pricing for the Pro plan is $12 per member per month.",
-  "evidence_ids": ["doc-changelog-3-2"],
-  "value": { "key": "pro_price", "value": 12, "unit": "USD/member/month" }
-}]}
+### Use your provider's native citations
+
+No custom output format needed. If your model already returns citations,
+the adapter builds claims and evidence from them:
+
+```ts
+import { fromAnthropicMessage } from "@agentproof/core";
+
+// `response` is a Messages API response; `documents` are the documents you sent, in order.
+const { output, evidence } = fromAnthropicMessage(response, documents);
+const receipt = await proof.verifyAnswer({ output, evidence });
 ```
 
-The contract's `output_schema` in `agentproof.yaml` doubles as the format
-instruction you give the model.
+Each citation becomes its own claim. Evidence content always comes from what
+*you* supplied, never from the model's `cited_text`, so a citation can't
+ground itself. `fromCitedSegments` is the provider-neutral version.
+
+### Ask "does the claim follow?" without letting the agent grade itself
+
+```ts
+import { anthropicJudge } from "@agentproof/judge-anthropic";
+
+const proof = await createVerifier({ policyFile: "./agentproof.yaml", judge: anthropicJudge() });
+```
+
+Turn it on with `checks.semantics.enabled: true`. The judge gets one claim
+and one excerpt in a fresh request, with no tools and no agent context, and
+only for quotes already found verbatim. Its verdict is labelled a *model
+assessment*. A timeout, error or refusal goes to review, never to pass. Any
+model works through the `Judge` interface.
+
+### Prove who issued a receipt
+
+```bash
+npm run agentproof -- keys generate --out keys
+npm run agentproof -- check run.json --policy agentproof.yaml --sign-key keys/agentproof-signing.key
+npm run agentproof -- verify-receipt agentproof-reports/run.json --public-key keys/agentproof-signing.pub
+```
+
+In code: `createVerifier({ signingKeyPem })` signs every receipt. A
+counterparty checks it with `verifyReceiptSignature(receipt, publicKey)`.
+
+## CLI
+
+| Command | Purpose | Exit |
+| --- | --- | --- |
+| `inspect <run.json>` | Diagnose with the baseline preset; never blocks | 0 |
+| `check <run.json> --policy f [--mode] [--sign-key]` | CI gate | 0 allow · 2 block/review · 3 error |
+| `report <receipt.json> [--run run.json]` | Render a receipt as HTML | 0 · 3 |
+| `init [--template research-handoff]` | Write a starter policy (observe mode) | 0 |
+| `policy validate <file>` | Compile and validate a policy | 0 · 3 |
+| `keys generate` | Create an Ed25519 signing key pair | 0 |
+| `verify-receipt <r> --public-key f` | Check who issued a receipt, and that it's unedited | 0 · 2 |
+| `prune [--days 7]` | Delete receipts past retention | 0 |
+
+`npm run agentproof -- <command>` runs from source. For an `agentproof`
+binary, run `npm run build && npm install`.
 
 ## Policy
 
 ```yaml
 api_version: agentproof/v1
 policy: { id: research-handoff, version: 1 }
-mode: enforce                       # or observe
+mode: enforce                        # or observe
 checks:
   evidence:
-    require_quote: true             # exact excerpt must appear in cited content
+    min_claims: 1                    # an answer with no claims isn't verified
+    require_quote: true              # each claim quotes its source verbatim
     allowed_source_ids: [product-docs, changelog]
-    max_source_age_days: 365
+  semantics: { enabled: false }      # opt-in independent judge
 contracts:
   research_to_writer:
     version: 1
     coordinator: writer
     worker: researcher
     deadline_ms: 30000
-    allowed_tools: [docs.search, docs.read]
-    output_schema: { ... }
+    allowed_tools: [docs.search, docs.read]   # tools are denied by default
 enforcement:
-  advisory_checks: [evidence.freshness]   # shown, never blocks
+  advisory_checks: [evidence.freshness]       # shown, never blocks
 ```
 
-One rule: a configured check is required; required **fail → block**,
-required **unknown → review**, checker crash → block. An output must declare
-at least `min_claims` claims (default 1). Boundary-integrity checks can't be
-made advisory, and unknown keys are rejected. Full template: `npx agentproof init`.
+Unknown keys are rejected. Checks that guard the boundary itself can't be
+made advisory. The full commented template comes from `agentproof init`.
 
 ## Repository
 
 ```
-packages/core     pure engine: policy, checks, decisions, receipts, HTML report
-packages/sdk      runtime gates: contracts, tool guard, approvals, receipt store
-packages/cli      agentproof command
-examples/         research-handoff two-agent reference app
-fixtures/         30 reviewed failure-mode runs + expected outcomes
-scripts/          fixture generator, benchmark
-docs/             CRITIQUE.md (what changed from the handoff and why), DESIGN.md
+packages/core             pure engine: policy, checks, decisions, receipts, adapters, signing, report
+packages/sdk              runtime gates: contracts, tool guard, judge wiring, approvals, receipt store
+packages/cli              the agentproof command
+packages/judge-anthropic  reference independent judge backed by Claude
+examples/                 research-handoff: the two-agent reference app
+fixtures/                 30 reviewed failure-mode runs and a provider response
+docs/                     GETTING_STARTED, DESIGN, CRITIQUE, images
 ```
 
 ```bash
-npm test          # 109 tests: fixtures, policy, receipts, hardening, SDK lifecycle, enforcement, CLI, end-to-end
-npm run bench     # 20 claims, ~1 MB evidence, 1,000 runs → p95 ≈ 33 ms
-npm run build     # tsc project references → dist/
+npm test        # 136 tests
+npm run bench   # 20 claims, ~1 MB evidence, 1,000 runs → p95 ≈ 35 ms
+npm run build   # TypeScript project references → dist/
 ```
-
-Requires Node ≥ 22.6 for running from source (`--experimental-strip-types`);
-built output runs on Node ≥ 20.11.
 
 ## Limits
 
 - A cited source can be wrong. Quote grounding proves presence, not truth.
-- v1 checks only explicitly declared claims; omitted claims are unchecked.
-- In-process gates assume a trusted host. A compromised app can bypass them.
-- Replaying a run with `check` cannot undo actions that already happened.
+- Only declared claims are checked; anything the agent didn't claim isn't.
+- The semantic judge is a model. Its verdicts are assessments, and it is off by default.
+- In-process gates assume a trusted host; a compromised app can bypass them.
+- Replaying a run with `check` can't undo actions that already happened.
 - Redaction is best-effort pattern matching.
 
-MIT licensed. "AgentProof" is a working name; package and trademark
-availability have not been checked.
+## License
+
+MIT. "AgentProof" is a working name; package and trademark availability
+haven't been checked.

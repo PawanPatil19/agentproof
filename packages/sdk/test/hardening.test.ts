@@ -90,3 +90,32 @@ describe("receipt store", () => {
     assert.deepEqual(readdirSync(dir).sort(), ["latest.json", "run-latest.json"]);
   });
 });
+
+describe("tool guard denies by default", () => {
+  it("blocks every tool when the contract lists none", async () => {
+    const { compilePolicy } = await import("@agentproof/core");
+    const { createVerifier, ToolBlockedError } = await import("@agentproof/sdk");
+    const policy = compilePolicy({
+      api_version: "agentproof/v1",
+      policy: { id: "p", version: 1 },
+      mode: "enforce",
+      contracts: { draft: { version: 1, coordinator: "writer", worker: "researcher", deadline_ms: 30_000 } },
+    });
+    const proof = await createVerifier({ policy, store: false });
+    const contract = proof.acceptContract(proof.issueContract("draft", { taskId: "t", worker: WORKER, coordinator: COORDINATOR }), { identity: WORKER });
+    let ran = false;
+    const tools = proof.guardTools(async () => void (ran = true), contract, { identity: WORKER });
+    await assert.rejects(tools("docs.read", {}), ToolBlockedError);
+    assert.equal(ran, false);
+  });
+});
+
+describe("signed receipts from the SDK", () => {
+  it("every receipt is signed when a key is configured", async () => {
+    const { generateSigningKey, verifyReceiptSignature } = await import("@agentproof/core");
+    const pair = generateSigningKey();
+    const proof = await verifier({ signingKeyPem: pair.privateKeyPem });
+    const receipt = await proof.verifyAnswer({ output: { text: "x", claims: deliverable.output.claims }, evidence: deliverable.evidence });
+    assert.equal(verifyReceiptSignature(receipt, pair.publicKeyPem).ok, true);
+  });
+});

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="t d">
+  <title id="t">From a run to a decision</title>
+  <desc id="d">A run envelope goes through checks. Each check returns pass, fail, unknown or not applicable. One policy rule turns results into an action: a required fail blocks, a required unknown goes to review, otherwise allow. The receipt records everything.</desc>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#4f6f62"/></marker></defs>
+  <rect width="1200" height="360" rx="20" fill="#f6f7f2"/>
+  <g font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
+    <g font-size="12" font-weight="700" fill="#5b6d66" letter-spacing="1.5">
+      <text x="150" y="44" text-anchor="middle">INPUT</text>
+      <text x="450" y="44" text-anchor="middle">RESULTS</text>
+      <text x="760" y="44" text-anchor="middle">ONE POLICY RULE</text>
+      <text x="1050" y="44" text-anchor="middle">ACTION</text>
+    </g>
+    <!-- input -->
+    <rect x="40" y="64" width="220" height="250" rx="14" fill="#fff" stroke="#c9d6cc"/>
+    <text x="150" y="98" text-anchor="middle" font-size="16" font-weight="700" fill="#192d29">Run envelope</text>
+    <g font-size="14" fill="#33473f">
+      <text x="66" y="136">• output + claims</text>
+      <text x="66" y="166">• captured evidence</text>
+      <text x="66" y="196">• tool events</text>
+      <text x="66" y="226">• contract</text>
+    </g>
+    <text x="150" y="276" text-anchor="middle" font-size="12" fill="#5b6d66">or a provider's native</text>
+    <text x="150" y="294" text-anchor="middle" font-size="12" fill="#5b6d66">citations, via an adapter</text>
+
+    <!-- results -->
+    <g font-size="14" font-weight="700">
+      <rect x="340" y="76" width="220" height="44" rx="10" fill="#e3efdf"/><text x="450" y="104" text-anchor="middle" fill="#235e36">PASS</text>
+      <rect x="340" y="134" width="220" height="44" rx="10" fill="#f9e3e3"/><text x="450" y="162" text-anchor="middle" fill="#a83b3b">FAIL</text>
+      <rect x="340" y="192" width="220" height="44" rx="10" fill="#f7ebcf"/><text x="450" y="220" text-anchor="middle" fill="#875414">UNKNOWN</text>
+      <rect x="340" y="250" width="220" height="44" rx="10" fill="#e9edf0"/><text x="450" y="278" text-anchor="middle" fill="#4a5967">NOT APPLICABLE</text>
+    </g>
+
+    <!-- rule -->
+    <rect x="640" y="64" width="240" height="250" rx="14" fill="#122e27"/>
+    <g font-size="14" fill="#d3e2d8">
+      <text x="664" y="104"><tspan fill="#ff8f86" font-weight="700">required fail</tspan></text>
+      <text x="664" y="126">→ block</text>
+      <text x="664" y="166"><tspan fill="#f0c070" font-weight="700">required unknown</tspan></text>
+      <text x="664" y="188">→ review</text>
+      <text x="664" y="228"><tspan fill="#8fe0a8" font-weight="700">everything else</tspan></text>
+      <text x="664" y="250">→ allow</text>
+    </g>
+    <text x="760" y="292" text-anchor="middle" font-size="12" fill="#9bb0a6">a crashed check never passes</text>
+
+    <!-- actions -->
+    <g font-size="16" font-weight="800">
+      <rect x="960" y="76" width="200" height="60" rx="12" fill="#a83b3b"/><text x="1060" y="112" text-anchor="middle" fill="#fff">BLOCK</text>
+      <rect x="960" y="160" width="200" height="60" rx="12" fill="#c9922e"/><text x="1060" y="196" text-anchor="middle" fill="#fff">REVIEW</text>
+      <rect x="960" y="244" width="200" height="60" rx="12" fill="#2b815b"/><text x="1060" y="280" text-anchor="middle" fill="#fff">ALLOW</text>
+    </g>
+
+    <g stroke="#4f6f62" stroke-width="2.5" fill="none" marker-end="url(#a)">
+      <path d="M262 189 H336"/>
+      <path d="M562 189 H636"/>
+      <path d="M882 106 H956"/><path d="M882 190 H956"/><path d="M882 274 H956"/>
+    </g>
+    <text x="600" y="342" text-anchor="middle" font-size="13" fill="#5b6d66">In observe mode the run continues and the receipt records the would-be action.</text>
+  </g>
+</svg>

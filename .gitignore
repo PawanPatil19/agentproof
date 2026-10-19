@@ -4,3 +4,5 @@ dist/
 agentproof-reports/
 examples/research-handoff/out/
 .DS_Store
+agentproof-signing.key
+*.key

@@ -76,6 +76,25 @@ describe("agentproof CLI", () => {
     assert.match(r.err, /not a valid AgentProof receipt/);
   });
 
+  it("keys + check --sign-key + verify-receipt round trip; tampering is caught", () => {
+    const k = cli(["keys", "generate", "--out", "keys"]);
+    assert.equal(k.code, 0, k.err);
+    assert.equal(statSync(join(k.cwd, "keys", "agentproof-signing.key")).mode & 0o777, 0o600);
+    const checked = cli(["check", run("valid"), "--policy", policy, "--sign-key", "keys/agentproof-signing.key", "--out", "out"], k.cwd);
+    assert.equal(checked.code, 0, checked.err);
+    const ok = cli(["verify-receipt", "out/fx-valid.json", "--public-key", "keys/agentproof-signing.pub"], k.cwd);
+    assert.equal(ok.code, 0, ok.err);
+    assert.match(ok.out, /verified/);
+
+    const path = join(k.cwd, "out", "fx-valid.json");
+    const receipt = JSON.parse(readFileSync(path, "utf8"));
+    receipt.decision = "block";
+    writeFileSync(path, JSON.stringify(receipt));
+    const bad = cli(["verify-receipt", "out/fx-valid.json", "--public-key", "keys/agentproof-signing.pub"], k.cwd);
+    assert.equal(bad.code, 2);
+    assert.match(bad.out, /edited after it was sealed/);
+  });
+
   it("report re-renders a receipt with claim text from the run file", () => {
     const first = cli(["check", run("valid"), "--policy", policy, "--out", "out"]);
     const r = cli(["report", "out/fx-valid.json", "--run", run("valid"), "--out", "r.html"], first.cwd);

@@ -147,6 +147,9 @@ export type ReasonCode =
   | "CONTRACT_EXPIRED"
   | "CONTRACT_REPLAY"
   | "CONTRACT_STATE_INVALID"
+  | "CLAIM_UNSUPPORTED"
+  | "CLAIM_SUPPORT_UNCLEAR"
+  | "JUDGE_UNAVAILABLE"
   | "RECEIPT_PERSIST_FAILED"
   | "CHECKER_ERROR";
 
@@ -230,6 +233,8 @@ export interface Receipt {
   tool_events: ToolEvent[];
   /** Hash of the output as submitted. Approvals bind to this. */
   output_sha256: string;
-  /** sha256 of this receipt's canonical JSON, excluding this field. */
+  /** sha256 of this receipt's canonical JSON, excluding this field and `signature`. */
   receipt_sha256: string;
+  /** Optional Ed25519 signature over `receipt_sha256`, proving who issued the receipt. */
+  signature?: { alg: "ed25519"; key_id: string; value: string };
 }

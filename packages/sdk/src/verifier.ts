@@ -17,12 +17,15 @@ import {
   baselinePolicy,
   contractInstanceDigest,
   hashOutput,
+  judgeClaims,
   parsePolicy,
+  signReceipt,
   verifyRun,
   type CheckResult,
   type CompiledPolicy,
   type ContractInstance,
   type EvidenceRecord,
+  type Judge,
   type Mode,
   type RawResult,
   type ReasonCode,
@@ -49,6 +52,13 @@ export interface VerifierOptions {
    * issued to identities listed for the contract's declared worker/coordinator.
    */
   identities?: Record<string, string[]>;
+  /**
+   * Independent semantic judge, required when the policy enables
+   * `checks.semantics`. Sees only claim + excerpt; never the agent's context.
+   */
+  judge?: Judge;
+  /** Ed25519 private key (PKCS#8 PEM). When set, every receipt is signed before it is stored. */
+  signingKeyPem?: string;
   /** Where receipts go. `false` disables persistence (tests, ephemeral runs). */
   store?: ReceiptStore | false;
   now?: () => Date;
@@ -71,7 +81,11 @@ export async function createVerifier(options: VerifierOptions = {}): Promise<Ver
   let policy = options.policy;
   if (!policy && options.policyText !== undefined) policy = parsePolicy(options.policyText);
   if (!policy && options.policyFile) policy = parsePolicy(await readFile(options.policyFile, "utf8"));
-  return new Verifier({ ...options, policy: policy ?? baselinePolicy() });
+  const compiled = policy ?? baselinePolicy();
+  if (compiled.semantics.enabled && !options.judge) {
+    throw new Error(`Policy ${compiled.id} enables checks.semantics but no judge was configured.`);
+  }
+  return new Verifier({ ...options, policy: compiled });
 }
 
 const lifecycle = (status: CheckResult["status"], reason: ReasonCode, message: string): RawResult => ({
@@ -88,6 +102,8 @@ export class Verifier {
   readonly mode: Mode;
   private readonly store: ReceiptStore | false;
   private readonly identities?: Record<string, string[]>;
+  private readonly judge?: Judge;
+  private readonly signingKeyPem?: string;
   private readonly now: () => Date;
   private readonly newId: () => string;
   private readonly ledger = new ContractLedger();
@@ -100,6 +116,8 @@ export class Verifier {
     this.mode = options.mode ?? options.policy.mode;
     this.store = options.store === undefined ? new FileReceiptStore() : options.store;
     this.identities = options.identities;
+    this.judge = options.judge;
+    this.signingKeyPem = options.signingKeyPem;
     this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? (() => randomUUID().replace(/-/g, "").slice(0, 16));
   }
@@ -230,6 +248,7 @@ export class Verifier {
       contract: entry?.contract ?? input.contract,
       submitted_at: this.now().toISOString(),
     };
+    extra.push(...(await this.judged(envelope)));
     const receipt = await this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults: extra }));
     // Only settle an attempt that is still ours to settle.
     if (entry && firstSubmission && entry.state === "submitted") entry.state = receipt.evaluated_decision === "allow" ? "validated" : "rejected";
@@ -249,7 +268,8 @@ export class Verifier {
       evidence: input.evidence ?? [],
       submitted_at: this.now().toISOString(),
     };
-    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now }));
+    const extraResults = await this.judged(envelope);
+    return this.finish(verifyRun(envelope, { policy: this.policy, mode: this.mode, now: this.now, extraResults }));
   }
 
   // ── Review ─────────────────────────────────────────────────────────────────
@@ -352,16 +372,26 @@ export class Verifier {
       return { reason: "CONTRACT_STATE_INVALID", message: `Contract attempt is '${entry.state}'; no further tool calls allowed.` };
     }
     if (this.now().getTime() > Date.parse(c.deadline_at)) return { reason: "CONTRACT_EXPIRED", message: "Contract deadline has passed." };
-    const allowed = this.policy.contracts.get(c.name)?.definition.allowed_tools;
-    if (allowed && !allowed.includes(tool)) return { reason: "TOOL_NOT_ALLOWED", message: `'${tool}' is not in allowed_tools for ${c.name}.` };
+    const allowed = this.policy.contracts.get(c.name)?.allowedTools;
+    if (allowed !== "any" && !allowed?.has(tool)) return { reason: "TOOL_NOT_ALLOWED", message: `'${tool}' is not in allowed_tools for ${c.name} (tools are denied by default).` };
     return undefined;
+  }
+
+  private async judged(envelope: RunEnvelope): Promise<RawResult[]> {
+    return this.judge && this.policy.semantics.enabled ? judgeClaims(envelope, this.policy, this.judge) : [];
   }
 
   /** Persist before release. If a durable receipt cannot be written, protected release is blocked. */
   private async finish(evaluated: Receipt): Promise<Receipt> {
-    const receipt = await this.persist(evaluated);
+    let receipt = await this.persist(this.sign(evaluated));
+    // A persistence failure amends (and re-seals) the receipt; sign the final version.
+    if (!receipt.signature && this.signingKeyPem) receipt = this.sign(receipt);
     this.issuedReceipts.set(receipt.receipt_sha256, receipt);
     return receipt;
+  }
+
+  private sign(receipt: Receipt): Receipt {
+    return this.signingKeyPem ? signReceipt(receipt, this.signingKeyPem) : receipt;
   }
 
   private async persist(receipt: Receipt): Promise<Receipt> {

@@ -10,9 +10,9 @@ import { pass, plural, result, type Check, type RawResult } from "./context.ts";
 
 export const checkTools: Check = (ctx) => {
   if (ctx.boundary !== "worker_completion" || !ctx.envelope.contract) return [];
-  const definition = ctx.policy.contracts.get(ctx.envelope.contract.name)?.definition;
-  if (!definition?.allowed_tools) return [];
-  const allowed = new Set(definition.allowed_tools);
+  const compiled = ctx.policy.contracts.get(ctx.envelope.contract.name);
+  if (!compiled) return []; // contract.binding reports the unknown contract
+  const allowed = compiled.allowedTools;
   const worker = ctx.envelope.contract.worker;
 
   const byTool = new Map<string, ToolEvent[]>();
@@ -29,10 +29,11 @@ export const checkTools: Check = (ctx) => {
     if (strangers.length > 0) {
       return result("tools.permission", target, "fail", "CONTRACT_IDENTITY_MISMATCH", `Called by ${strangers.join(", ")}, not the contracted worker.`);
     }
-    if (!allowed.has(tool)) {
+    if (allowed !== "any" && !allowed.has(tool)) {
       const blocked = events.filter((e) => e.outcome === "blocked").length;
       const how = blocked === events.length ? "blocked before invocation" : `invoked ${plural(events.length - blocked, "time")} (observe mode)`;
-      return result("tools.permission", target, "fail", "TOOL_NOT_ALLOWED", `'${tool}' is not in allowed_tools; ${how}.`);
+      const why = allowed.size === 0 ? "the contract allows no tools" : "it is not in allowed_tools";
+      return result("tools.permission", target, "fail", "TOOL_NOT_ALLOWED", `'${tool}' was refused because ${why}; ${how}.`);
     }
     const violated = events.find((e) => e.reason_code !== undefined);
     if (violated) {

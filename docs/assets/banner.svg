@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" role="img" aria-labelledby="t d">
+  <title id="t">AgentProof</title>
+  <desc id="d">An independent acceptance gate for agent handoffs. Every answer needs evidence. Every handoff needs a contract.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f2a23"/>
+      <stop offset="1" stop-color="#163a30"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" rx="24" fill="url(#bg)"/>
+  <text x="1175" y="250" text-anchor="end" font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="230" font-weight="800" fill="#dcf489" opacity="0.06">✓</text>
+  <g transform="translate(64 64)">
+    <rect width="64" height="64" rx="16" fill="#146b50"/>
+    <path d="M18 33 l10 10 l19 -22" fill="none" stroke="#dcf489" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
+    <text x="148" y="113" font-size="52" font-weight="800" fill="#ffffff" letter-spacing="-1.5">AgentProof</text>
+    <text x="66" y="178" font-size="30" font-weight="650" fill="#dcf489">An independent acceptance gate for agent handoffs.</text>
+    <text x="66" y="218" font-size="20" fill="#c3d6cb">Every answer needs evidence. Every handoff needs a contract.</text>
+    <g font-size="14" font-weight="600" fill="#d3e2d8">
+      <rect x="66" y="242" width="140" height="30" rx="15" fill="none" stroke="#5d7d71"/><text x="136" y="262" text-anchor="middle">deterministic</text>
+      <rect x="218" y="242" width="118" height="30" rx="15" fill="none" stroke="#5d7d71"/><text x="277" y="262" text-anchor="middle">local-first</text>
+      <rect x="348" y="242" width="160" height="30" rx="15" fill="none" stroke="#5d7d71"/><text x="428" y="262" text-anchor="middle">signed receipts</text>
+      <rect x="520" y="242" width="172" height="30" rx="15" fill="none" stroke="#5d7d71"/><text x="606" y="262" text-anchor="middle">provider-neutral</text>
+    </g>
+  </g>
+</svg>

@@ -37,6 +37,7 @@ export interface PolicyDocument {
       max_source_age_days?: number;
     };
     numeric?: { absolute_tolerance?: number; relative_tolerance?: number };
+    semantics?: { enabled?: boolean; timeout_ms?: number; max_claims?: number; concurrency?: number };
   };
   final_answer?: { output_schema?: Record<string, unknown> };
   contracts?: Record<string, ContractDefinition>;
@@ -57,6 +58,11 @@ export interface CompiledContract {
   definition: ContractDefinition;
   /** Pins the exact obligations; any edit to the definition changes it. */
   definitionDigest: string;
+  /**
+   * Tools the worker may call. Deny by default: a contract without
+   * `allowed_tools` permits none; `["*"]` is the explicit opt-in to any tool.
+   */
+  allowedTools: ReadonlySet<string> | "any";
   validateOutput?: ValidateFunction;
 }
 
@@ -78,6 +84,8 @@ export interface CompiledPolicy {
     maxSourceAgeDays?: number;
   };
   numeric: { absoluteTolerance: number; relativeTolerance: number };
+  /** Opt-in model assessment of claim support. Needs a Judge at runtime. */
+  semantics: { enabled: boolean; timeoutMs: number; maxClaims: number; concurrency: number };
   finalAnswerSchema?: ValidateFunction;
   contracts: ReadonlyMap<string, CompiledContract>;
   enforcement: {
@@ -161,10 +169,17 @@ export function compilePolicy(doc: unknown): CompiledPolicy {
     }
     if (definition.allowed_tools && registryTools) {
       for (const tool of definition.allowed_tools) {
-        if (!registryTools.has(tool)) issues.push({ path: `${path}/allowed_tools`, message: `tool '${tool}' is not in registry.tools` });
+        if (tool !== "*" && !registryTools.has(tool)) issues.push({ path: `${path}/allowed_tools`, message: `tool '${tool}' is not in registry.tools` });
       }
     }
-    const compiled: CompiledContract = { name, definition, definitionDigest: contractDefinitionDigest(name, definition) };
+    const tools = definition.allowed_tools ?? [];
+    if (tools.includes("*") && tools.length > 1) issues.push({ path: `${path}/allowed_tools`, message: "'*' allows every tool; list it alone" });
+    const compiled: CompiledContract = {
+      name,
+      definition,
+      definitionDigest: contractDefinitionDigest(name, definition),
+      allowedTools: tools.includes("*") ? "any" : new Set(tools),
+    };
     if (definition.output_schema) {
       try {
         compiled.validateOutput = ajv.compile(definition.output_schema);
@@ -215,6 +230,12 @@ export function compilePolicy(doc: unknown): CompiledPolicy {
     numeric: {
       absoluteTolerance: policy.checks?.numeric?.absolute_tolerance ?? 0,
       relativeTolerance: policy.checks?.numeric?.relative_tolerance ?? 0,
+    },
+    semantics: {
+      enabled: policy.checks?.semantics?.enabled ?? false,
+      timeoutMs: policy.checks?.semantics?.timeout_ms ?? 15_000,
+      maxClaims: policy.checks?.semantics?.max_claims ?? 20,
+      concurrency: policy.checks?.semantics?.concurrency ?? 4,
     },
     finalAnswerSchema,
     contracts,

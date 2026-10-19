@@ -1,15 +1,16 @@
-import { verifyRun, type Mode } from "@agentproof/core";
+import { readFile } from "node:fs/promises";
+import { signReceipt, verifyRun, type Mode } from "@agentproof/core";
 import { flag, parseArgs, UsageError } from "../args.ts";
-import { claimTextOf, EXIT, loadPolicy, readJson, writeOutputs } from "../io.ts";
+import { CliError, claimTextOf, EXIT, loadPolicy, readJson, writeOutputs } from "../io.ts";
 import { formatReceipt } from "../terminal.ts";
 
-export const CHECK_HELP = `agentproof check <run.json> --policy agentproof.yaml [--mode enforce|observe] [--out dir] [--json]
+export const CHECK_HELP = `agentproof check <run.json> --policy agentproof.yaml [--mode enforce|observe] [--sign-key file] [--out dir] [--json]
 
 Gate a run under a policy. Exit codes: 0 allow · 2 block or review · 3 error.
 A replayed check cannot undo actions that already happened.`;
 
 export async function check(argv: string[]): Promise<number> {
-  const args = parseArgs(argv, { values: ["policy", "mode", "out"], booleans: ["json"] });
+  const args = parseArgs(argv, { values: ["policy", "mode", "out", "sign-key"], booleans: ["json"] });
   const [runPath] = args.positionals;
   if (!runPath) throw new UsageError("check needs a run file");
   const policyPath = flag(args, "policy");
@@ -19,7 +20,14 @@ export async function check(argv: string[]): Promise<number> {
 
   const run = await readJson(runPath);
   const policy = await loadPolicy(policyPath);
-  const receipt = verifyRun(run, { policy, mode: mode as Mode | undefined });
+  let receipt = verifyRun(run, { policy, mode: mode as Mode | undefined });
+  const keyPath = flag(args, "sign-key");
+  if (keyPath) {
+    const key = await readFile(keyPath, "utf8").catch(() => {
+      throw new CliError(`cannot read signing key ${keyPath}`);
+    });
+    receipt = signReceipt(receipt, key);
+  }
   const paths = await writeOutputs(receipt, flag(args, "out") ?? "agentproof-reports", claimTextOf(run));
   console.log(args.flags.json ? JSON.stringify(receipt, null, 2) : formatReceipt(receipt, paths));
   return receipt.decision === "allow" ? EXIT.ALLOW : EXIT.BLOCK;

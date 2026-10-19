@@ -132,7 +132,9 @@ export function buildReceipt(input: ReceiptInput): Receipt {
 
 /** Compute the receipt digest over its canonical JSON (excluding the digest itself). */
 export function seal(receipt: Omit<Receipt, "receipt_sha256"> | Receipt): Receipt {
-  const { receipt_sha256: _ignored, ...body } = receipt as Receipt;
+  // A signature is attached after sealing and is never part of the digest;
+  // re-sealing drops it, because the old signature no longer applies.
+  const { receipt_sha256: _digest, signature: _signature, ...body } = receipt as Receipt;
   return { ...body, receipt_sha256: sha256(canonicalJson(body)) };
 }
 

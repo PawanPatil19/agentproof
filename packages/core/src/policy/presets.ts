@@ -49,6 +49,9 @@ checks:
     max_source_age_days: 365     # uses trusted published_at, not capture time
   numeric:
     relative_tolerance: 0.005    # 0.5% for rounding
+  semantics:                     # independent model assessment: does the claim follow from its quote?
+    enabled: false               # needs a Judge at runtime, e.g. @agentproof/judge-anthropic
+    timeout_ms: 15000            # a timeout is "unknown" → review, never a pass
 
 final_answer:                # what the writer may show a person
   output_schema:
