@@ -49,7 +49,7 @@ describe("receipt conformance vectors", () => {
   it("claim salts and commitments", () => {
     const key = Buffer.from(v.keys.commitment_key_hex, "hex");
     for (const c of v.claim_commitments) {
-      const salt = claimSalt(key, c.run_id, c.claim_id);
+      const salt = claimSalt(key, c.commitment_nonce, c.claim_id);
       assert.equal(salt.toString("hex"), c.salt);
       assert.equal(commitClaimText(salt, c.text), c.text_commitment);
     }

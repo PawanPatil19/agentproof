@@ -7,9 +7,13 @@
  *   text_commitment = "hmac-sha256:" + hex(HMAC-SHA256(key = salt, msg = UTF-8 text))
  *
  * with a 32-byte salt per claim that never appears in the receipt. The
- * salt is derived from a commitment key the issuer keeps:
+ * salt is derived from a commitment key the issuer keeps and a random
+ * per-receipt nonce that the receipt records (`commitment_nonce`):
  *
- *   salt = HMAC-SHA256(key = commitment key, msg = "agentproof.claim-salt/v1" 0x00 run_id 0x00 claim_id)
+ *   salt = HMAC-SHA256(key = commitment key, msg = "agentproof.claim-salt/v2" 0x00 commitment_nonce 0x00 claim_id)
+ *
+ * The nonce makes every receipt's salts unique even when an agent reuses
+ * a run ID, so a salt disclosed for one receipt opens nothing in another.
  *
  * so the issuer can later open one claim to one auditor by handing over
  * (claim_id, salt, text). Opening one claim reveals nothing about the
@@ -20,9 +24,9 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Receipt } from "./types.ts";
 
 export const COMMITMENT_PREFIX = "hmac-sha256:";
-const SALT_LABEL = "agentproof.claim-salt/v1";
+const SALT_LABEL = "agentproof.claim-salt/v2";
 
-/** Key material accepted for a commitment key: raw bytes, or a hex/base64 string of at least 16 bytes. */
+/** Key material for a commitment key: raw bytes, or a hex string. At least 16 bytes (32 recommended). */
 export type CommitmentKey = Uint8Array | string;
 
 /** A fresh random 32-byte commitment key, hex encoded. Store it as a secret alongside your signing key. */
@@ -30,21 +34,32 @@ export function generateCommitmentKey(): string {
   return randomBytes(32).toString("hex");
 }
 
+/**
+ * Decode a commitment key. Strings must be plain hex (surrounding whitespace,
+ * such as a trailing newline in a key file, is ignored); anything else is
+ * rejected rather than guessed at, so a typo can't silently become another key.
+ */
 export function commitmentKeyBytes(key: CommitmentKey): Buffer {
   let bytes: Buffer;
   if (typeof key !== "string") bytes = Buffer.from(key);
   else {
     const text = key.trim();
-    bytes = /^(?:[0-9a-fA-F]{2})+$/.test(text) ? Buffer.from(text, "hex") : Buffer.from(text, "base64");
+    if (!/^(?:[0-9a-fA-F]{2})+$/.test(text)) throw new Error("A commitment key must be hex encoded (e.g. from generateCommitmentKey()).");
+    bytes = Buffer.from(text, "hex");
   }
   if (bytes.length < 16) throw new Error("A commitment key must be at least 16 bytes (32 recommended).");
   return bytes;
 }
 
-/** Derive the salt for one claim of one run. */
-export function claimSalt(key: CommitmentKey, runId: string, claimId: string): Buffer {
+/** A fresh per-receipt nonce: 16 random bytes, hex encoded. */
+export function generateCommitmentNonce(): string {
+  return randomBytes(16).toString("hex");
+}
+
+/** Derive the salt for one claim of one receipt. */
+export function claimSalt(key: CommitmentKey, nonce: string, claimId: string): Buffer {
   return createHmac("sha256", commitmentKeyBytes(key))
-    .update(Buffer.concat([Buffer.from(SALT_LABEL, "utf8"), Buffer.of(0), Buffer.from(runId, "utf8"), Buffer.of(0), Buffer.from(claimId, "utf8")]))
+    .update(Buffer.concat([Buffer.from(SALT_LABEL, "utf8"), Buffer.of(0), Buffer.from(nonce, "utf8"), Buffer.of(0), Buffer.from(claimId, "utf8")]))
     .digest();
 }
 
@@ -68,7 +83,7 @@ export interface ClaimDisclosure {
  * accident.
  */
 export function discloseClaim(key: CommitmentKey, receipt: Receipt, claimId: string, text: string): ClaimDisclosure {
-  const salt = claimSalt(key, receipt.run_id, claimId);
+  const salt = claimSalt(key, receipt.commitment_nonce, claimId);
   const disclosure = { claim_id: claimId, salt: salt.toString("hex"), text };
   if (!verifyClaimDisclosure(receipt, disclosure)) {
     throw new Error(`Claim '${claimId}' does not match its commitment under this key and text.`);

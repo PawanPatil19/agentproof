@@ -118,6 +118,18 @@ describe("agentproof CLI", () => {
     assert.match(bad.out, /not verified/);
   });
 
+  it("a run ID ending in .dsse can't overwrite another run's envelope", () => {
+    const k = cli(["keys", "generate", "--out", "keys"]);
+    const envelope = JSON.parse(readFileSync(run("valid"), "utf8"));
+    envelope.run_id = "fx-valid.dsse";
+    writeFileSync(join(k.cwd, "evil.json"), JSON.stringify(envelope));
+    assert.equal(cli(["check", run("valid"), "--policy", policy, "--sign-key", "keys/agentproof-signing.key", "--out", "out"], k.cwd).code, 0);
+    cli(["check", "evil.json", "--policy", policy, "--sign-key", "keys/agentproof-signing.key", "--out", "out"], k.cwd);
+    const ok = cli(["verify-receipt", "out/fx-valid.dsse.json", "--public-key", "keys/agentproof-signing.pub"], k.cwd);
+    assert.equal(ok.code, 0, ok.out);
+    assert.match(ok.out, /receipt fx-valid verified/);
+  });
+
   it("check --commitment-key rejects a key that is too short", () => {
     const k = cli(["keys", "generate", "--out", "keys"]);
     writeFileSync(join(k.cwd, "short.key"), "abcd");

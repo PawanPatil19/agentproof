@@ -6,3 +6,4 @@ examples/research-handoff/out/
 .DS_Store
 agentproof-signing.key
 *.key
+__pycache__/

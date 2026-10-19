@@ -8,7 +8,7 @@ import { CHECKS, type CheckContext, type RawResult } from "./checks/index.ts";
 import { markRequired } from "./decide.ts";
 import { parseEnvelope } from "./envelope.ts";
 import { buildReceipt } from "./receipt.ts";
-import type { CommitmentKey } from "./commitment.ts";
+import { commitmentKeyBytes, type CommitmentKey } from "./commitment.ts";
 import { judgeMissing } from "./semantics.ts";
 
 export interface VerifyOptions {
@@ -28,6 +28,8 @@ export function verifyRun(input: unknown, options: VerifyOptions): Receipt {
   const now = options.now ?? (() => new Date());
   const { policy } = options;
   const mode = options.mode ?? policy.mode;
+  // A bad commitment key is a configuration error: fail on every call, not only on runs with claims.
+  if (options.commitmentKey !== undefined) commitmentKeyBytes(options.commitmentKey);
 
   const rejectEnvelope = (status: "fail" | "unknown", reason: "ENVELOPE_INVALID" | "CHECKER_ERROR", message: string): Receipt => {
     const runId = safeRunId(input);

@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import {
   amendReceipt,
   baselinePolicy,
+  commitmentKeyBytes,
   contractInstanceDigest,
   hashOutput,
   judgeClaims,
@@ -126,7 +127,8 @@ export class Verifier {
     this.identities = options.identities;
     this.judge = options.judge;
     this.signingKeyPem = options.signingKeyPem;
-    this.commitmentKey = options.commitmentKey;
+    // Validate at configuration time so a bad key never surfaces mid-run.
+    this.commitmentKey = options.commitmentKey === undefined ? undefined : commitmentKeyBytes(options.commitmentKey);
     this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? (() => randomUUID().replace(/-/g, "").slice(0, 16));
   }

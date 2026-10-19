@@ -110,8 +110,8 @@ def sha256_hex(text):
 
 # ── AgentProof receipt rules (docs/RECEIPT_SPEC.md) ───────────────────────
 
-def claim_salt(key, run_id, claim_id):
-    msg = b"agentproof.claim-salt/v1\x00" + run_id.encode() + b"\x00" + claim_id.encode()
+def claim_salt(key, nonce, claim_id):
+    msg = b"agentproof.claim-salt/v2\x00" + nonce.encode() + b"\x00" + claim_id.encode()
     return hmac.new(key, msg, hashlib.sha256).digest()
 
 
@@ -152,7 +152,7 @@ def main():
 
     key = bytes.fromhex(v["keys"]["commitment_key_hex"])
     for case in v["claim_commitments"]:
-        salt = claim_salt(key, case["run_id"], case["claim_id"])
+        salt = claim_salt(key, case["commitment_nonce"], case["claim_id"])
         assert salt.hex() == case["salt"], case
         assert commit(salt, case["text"]) == case["text_commitment"], case
         n += 1

@@ -36,14 +36,27 @@ describe("salted claim commitments", () => {
     assert.ok(parseReceipt(receipt).ok);
   });
 
-  it("the same claim under different keys commits differently; the same key is deterministic", () => {
-    const a = verifyRun(run(), { policy, commitmentKey: key }).claims[0]!.text_commitment;
-    const b = verifyRun(run(), { policy, commitmentKey: key }).claims[0]!.text_commitment;
-    const c = verifyRun(run(), { policy, commitmentKey: generateCommitmentKey() }).claims[0]!.text_commitment;
-    const d = verifyRun(run(), { policy }).claims[0]!.text_commitment;
-    assert.equal(a, b);
-    assert.notEqual(a, c);
-    assert.notEqual(a, d, "without a key, salts are random");
+  it("every receipt gets fresh salts, even for the same run ID, key and text", () => {
+    const a = verifyRun(run(), { policy, commitmentKey: key });
+    const b = verifyRun(run(), { policy, commitmentKey: key });
+    assert.equal(a.run_id, b.run_id);
+    assert.notEqual(a.commitment_nonce, b.commitment_nonce);
+    assert.notEqual(a.claims[0]!.text_commitment, b.claims[0]!.text_commitment);
+    assert.notEqual(verifyRun(run(), { policy }).claims[0]!.text_commitment, a.claims[0]!.text_commitment);
+  });
+
+  it("a salt disclosed for one receipt does not open another receipt with the same run ID", () => {
+    const envelope = run();
+    const a = verifyRun(envelope, { policy, commitmentKey: key });
+    const b = verifyRun(envelope, { policy, commitmentKey: key });
+    const first = envelope.output.claims[0];
+    const fromB = discloseClaim(key, b, first.id, first.text);
+    assert.equal(verifyClaimDisclosure(a, fromB), false, "a guess can't be tested against receipt A with B's salt");
+  });
+
+  it("a bad commitment key fails every call, with or without claims", () => {
+    assert.throws(() => verifyRun(run(), { policy, commitmentKey: "abcd" }), /at least 16 bytes/);
+    assert.throws(() => verifyRun({ nonsense: true }, { policy, commitmentKey: "abcd" }), /at least 16 bytes/);
   });
 
   it("an issuer can open one claim to an auditor, and only with the right text", () => {
@@ -63,13 +76,18 @@ describe("salted claim commitments", () => {
 
   it("salts follow the published derivation", () => {
     const k = Buffer.alloc(32, 7);
-    const expected = createHmac("sha256", k).update(Buffer.from("agentproof.claim-salt/v1\0run-1\0c1", "utf8")).digest("hex");
-    assert.equal(claimSalt(k, "run-1", "c1").toString("hex"), expected);
+    const nonce = "0f".repeat(16);
+    const expected = createHmac("sha256", k).update(Buffer.from(`agentproof.claim-salt/v2\0${nonce}\0c1`, "utf8")).digest("hex");
+    assert.equal(claimSalt(k, nonce, "c1").toString("hex"), expected);
   });
 
-  it("commitment keys: hex or base64 text, at least 16 bytes", () => {
+  it("commitment keys: raw bytes or strict hex, at least 16 bytes", () => {
     assert.equal(commitmentKeyBytes("00".repeat(32)).length, 32);
-    assert.equal(commitmentKeyBytes(Buffer.alloc(32, 1).toString("base64")).length, 32);
+    assert.equal(commitmentKeyBytes(` ${"ab".repeat(16)}\n`).length, 16, "a trailing newline in a key file is fine");
+    assert.throws(() => commitmentKeyBytes(Buffer.alloc(32, 1).toString("base64")), /hex/);
+    assert.throws(() => commitmentKeyBytes(`0x${"00".repeat(32)}`), /hex/);
+    assert.throws(() => commitmentKeyBytes("0".repeat(63)), /hex/);
+    assert.throws(() => commitmentKeyBytes("correct horse battery staple!!!"), /hex/);
     assert.throws(() => commitmentKeyBytes("abcd"), /at least 16 bytes/);
     assert.throws(() => commitmentKeyBytes(new Uint8Array(8)), /at least 16 bytes/);
   });
@@ -107,6 +125,16 @@ describe("RFC 8785 canonical JSON", () => {
       [1e23, "1e+23"], [295147905179352830000, "295147905179352830000"], [333333333.3333333, "333333333.3333333"],
     ];
     for (const [n, text] of cases) assert.equal(canonicalJson(n), text);
+  });
+
+  it("agent-supplied lone surrogates never reach a sealed receipt", () => {
+    const envelope = run();
+    envelope.run_id = "r\ud800x";
+    envelope.task_id = "t\udc00";
+    const receipt = verifyRun(envelope, { policy });
+    assert.equal(receipt.run_id, "r\uFFFDx");
+    assert.equal(receipt.task_id, "t\uFFFD");
+    assert.ok(!/\\ud[89a-f]/i.test(canonicalJson(receipt)), "no escaped surrogates in the canonical form");
   });
 
   it("persisted strings are valid Unicode even when a cap splits an emoji", () => {

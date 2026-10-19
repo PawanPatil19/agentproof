@@ -16,7 +16,7 @@ const RECEIPT_SCHEMA = {
   required: [
     "receipt_version", "run_id", "boundary", "created_at", "duration_ms", "checker_version", "policy", "mode",
     "decision", "evaluated_decision", "reason_codes", "coverage", "checks", "claims", "evidence", "tool_events",
-    "output_sha256", "receipt_sha256",
+    "output_sha256", "receipt_sha256", "commitment_nonce",
   ],
   properties: {
     receipt_version: { const: "agentproof.receipt/v2" },
@@ -70,10 +70,11 @@ const RECEIPT_SCHEMA = {
     },
     output_sha256: str,
     receipt_sha256: str,
+    commitment_nonce: { type: "string", pattern: "^[0-9a-f]{32}$" },
     signature: {
       type: "object",
       required: ["alg", "key_id", "value"],
-      properties: { alg: { const: "ed25519" }, key_id: { type: "string", pattern: "^[0-9a-f]{16}$" }, value: { type: "string", maxLength: 200 } },
+      properties: { alg: { const: "ed25519" }, key_id: { type: "string", pattern: "^[0-9a-f]{16}$" }, value: { type: "string", pattern: "^[A-Za-z0-9+/]{85}[AQgw]==$" } },
       additionalProperties: false,
     },
   },

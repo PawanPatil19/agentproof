@@ -112,11 +112,21 @@ export function verifyReceiptSignature(receipt: Receipt, publicKeyPem: string): 
   const sig = receipt.signature;
   if (!sig) return { ok: false, reason: "UNSIGNED" };
   if (sig.alg !== "ed25519") return { ok: false, reason: "UNSUPPORTED_ALG" };
+  // Exactly one encoding per signature: lenient base64 would let different files verify as the same receipt.
+  const sigBytes = canonicalBase64(sig.value);
+  if (sigBytes?.length !== 64) return { ok: false, reason: "BAD_SIGNATURE" };
   if (!verifyReceiptDigest(receipt)) return { ok: false, reason: "DIGEST_MISMATCH" };
   const key = createPublicKey(publicKeyPem);
   if (keyIdOf(key) !== sig.key_id) return { ok: false, reason: "WRONG_KEY" };
-  const ok = verify(null, preAuthEncoding(DSSE_PAYLOAD_TYPE, receiptPayload(receipt)), key, Buffer.from(sig.value, "base64"));
+  const ok = verify(null, preAuthEncoding(DSSE_PAYLOAD_TYPE, receiptPayload(receipt)), key, sigBytes);
   return ok ? { ok: true, keyId: sig.key_id } : { ok: false, reason: "BAD_SIGNATURE" };
+}
+
+/** Decode standard base64 only if it is in canonical form (padded, no stray characters or bits). */
+function canonicalBase64(text: string): Buffer | undefined {
+  if (typeof text !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(text)) return undefined;
+  const bytes = Buffer.from(text, "base64");
+  return bytes.toString("base64") === text ? bytes : undefined;
 }
 
 /** Export a signed receipt as a standard DSSE envelope. */
@@ -144,18 +154,30 @@ export type EnvelopeParse = { ok: true; receipt: Receipt } | { ok: false; reason
  * signed bytes. Verify the result with `verifyReceiptSignature`.
  */
 export function fromDsseEnvelope(envelope: DsseEnvelope): EnvelopeParse {
+  try {
+    return openEnvelope(envelope);
+  } catch (error) {
+    // Envelopes are untrusted input: anything unexpected is a malformed envelope, never a crash.
+    return { ok: false, reason: "MALFORMED_ENVELOPE", problems: `unreadable envelope: ${(error as Error).message}` };
+  }
+}
+
+function openEnvelope(envelope: DsseEnvelope): EnvelopeParse {
   const bad = (problems: string): EnvelopeParse => ({ ok: false, reason: "MALFORMED_ENVELOPE", problems });
+  if (!isDsseEnvelope(envelope)) return bad("not a DSSE envelope");
   if (envelope.payloadType !== DSSE_PAYLOAD_TYPE) return bad(`payloadType must be ${DSSE_PAYLOAD_TYPE}`);
   if (envelope.signatures.length !== 1) return bad("expected exactly one signature");
   const [signature] = envelope.signatures;
   if (typeof signature?.keyid !== "string" || typeof signature.sig !== "string") return bad("signature needs keyid and sig");
-  const payload = Buffer.from(envelope.payload, "base64");
+  const payload = canonicalBase64(envelope.payload);
+  if (!payload) return bad("payload must be canonical standard base64");
   let statement: Partial<InTotoStatement>;
   try {
     statement = JSON.parse(payload.toString("utf8")) as Partial<InTotoStatement>;
   } catch {
     return bad("payload is not JSON");
   }
+  if (statement === null || typeof statement !== "object" || Array.isArray(statement)) return bad("payload is not a JSON object");
   if (statement._type !== IN_TOTO_STATEMENT_TYPE) return bad(`_type must be ${IN_TOTO_STATEMENT_TYPE}`);
   if (statement.predicateType !== RECEIPT_PREDICATE_TYPE) return bad(`predicateType must be ${RECEIPT_PREDICATE_TYPE}`);
   const parsed = parseReceipt(statement.predicate);

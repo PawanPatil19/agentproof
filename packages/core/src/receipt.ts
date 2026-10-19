@@ -23,8 +23,8 @@ import type { CompiledPolicy } from "./policy/compile.ts";
 import type { ResolvedClaim } from "./checks/context.ts";
 import { decide } from "./decide.ts";
 import { canonicalJson, sha256 } from "./util/hash.ts";
-import { claimSalt, commitClaimText, generateCommitmentKey, type CommitmentKey } from "./commitment.ts";
-import { redact, safeText, sanitizeLocator, wellFormed } from "./util/text.ts";
+import { claimSalt, commitClaimText, commitmentKeyBytes, generateCommitmentKey, generateCommitmentNonce, type CommitmentKey } from "./commitment.ts";
+import { redact, safeText, sanitizeLocator, wellFormed, wellFormedDeep } from "./util/text.ts";
 import { CHECKER_VERSION, RECEIPT_VERSION } from "./version.ts";
 
 export interface ReceiptInput {
@@ -47,6 +47,12 @@ export interface ReceiptInput {
    * used and the claim commitments can never be opened.
    */
   commitmentKey?: CommitmentKey;
+  /**
+   * Per-receipt nonce for claim salts. Leave unset: a fresh random one is
+   * used. Only fixed in conformance vectors; reusing a nonce under one key
+   * lets a disclosure for one receipt open claims in another.
+   */
+  commitmentNonce?: string;
 }
 
 /** Fold per-claim results into one status: fail > unknown > pass > not_applicable. */
@@ -78,7 +84,9 @@ export function buildReceipt(input: ReceiptInput): Receipt {
   const { policy, results } = input;
   const { decision: evaluated, reasons } = decide(results, policy);
   const includeText = policy.privacy.capture === "claims";
-  const commitmentKey = input.commitmentKey ?? generateCommitmentKey();
+  // Decode once, up front: a bad key fails the same way whether or not the run has claims.
+  const commitmentKey = commitmentKeyBytes(input.commitmentKey ?? generateCommitmentKey());
+  const commitmentNonce = input.commitmentNonce ?? generateCommitmentNonce();
 
   // Everything below that the agent controls is redacted and capped: IDs,
   // messages and targets can carry secrets as easily as claim text can.
@@ -87,7 +95,7 @@ export function buildReceipt(input: ReceiptInput): Receipt {
     return {
       id,
       // Salted, so a short claim can't be confirmed by hashing guesses.
-      text_commitment: commitClaimText(claimSalt(commitmentKey, input.runId, id), c.text),
+      text_commitment: commitClaimText(claimSalt(commitmentKey, commitmentNonce, id), c.text),
       ...(includeText ? { text: wellFormed(redact(c.text)) } : {}),
       evidence_ids: c.evidence_ids.map((e) => safeText(e, 128)),
       status: claimStatus(c.id, results),
@@ -129,6 +137,7 @@ export function buildReceipt(input: ReceiptInput): Receipt {
     reason_codes: reasons,
     coverage: coverageOf(claims, results, input.toolEvents.length),
     checks: results.map((r) => ({ ...r, target: safeText(r.target, 160), message: safeText(r.message) })),
+    commitment_nonce: commitmentNonce,
     claims,
     evidence,
     tool_events: input.toolEvents.map((t) => ({
@@ -139,7 +148,10 @@ export function buildReceipt(input: ReceiptInput): Receipt {
     })),
     output_sha256: hashOutput(input.output),
   };
-  return seal(receipt);
+  // Agent-supplied strings (run_id, task_id, contract fields, timestamps…) can
+  // carry lone surrogates; make every string valid Unicode so the receipt is
+  // canonicalizable, and verifiable, in any language.
+  return seal(wellFormedDeep(receipt));
 }
 
 /** Compute the receipt digest over its canonical JSON (excluding the digest itself). */

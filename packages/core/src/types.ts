@@ -233,6 +233,8 @@ export interface Receipt {
   reason_codes: ReasonCode[];
   coverage: Coverage;
   checks: CheckResult[];
+  /** Random per-receipt nonce (32 hex chars) mixed into every claim's salt. */
+  commitment_nonce: string;
   claims: ReceiptClaim[];
   evidence: ReceiptEvidence[];
   tool_events: ToolEvent[];
@@ -242,7 +244,7 @@ export interface Receipt {
   receipt_sha256: string;
   /**
    * Optional Ed25519 signature proving who issued the receipt. It is a DSSE
-   * signature over the receipt's in-toto Statement (see dsse.ts), so the
+   * signature over the receipt's in-toto Statement (see signing.ts), so the
    * receipt converts losslessly to a standard DSSE envelope and back.
    */
   signature?: { alg: "ed25519"; key_id: string; value: string };

@@ -20,7 +20,8 @@ export class MemoryReceiptStore implements ReceiptStore {
 
 const safeName = (id: string) => {
   const name = id.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120);
-  return name === "latest" || name.startsWith(".") ? `run-${name}` : name;
+  // "<run>.dsse.json" is a signed receipt's DSSE envelope; a run ID can't claim that name.
+  return name === "latest" || name.startsWith(".") || name.endsWith(".dsse") ? `run-${name}` : name;
 };
 
 /** Write a file atomically with owner-only permissions. */

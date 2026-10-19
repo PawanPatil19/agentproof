@@ -97,3 +97,15 @@ const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[
 export function wellFormed(text: string): string {
   return text.replace(LONE_SURROGATE, "\uFFFD");
 }
+
+/** `wellFormed` applied to every string (keys included) in a JSON-like value. */
+export function wellFormedDeep<T>(value: T): T {
+  if (typeof value === "string") return wellFormed(value) as T;
+  if (Array.isArray(value)) return value.map((v) => wellFormedDeep(v)) as T;
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[wellFormed(k)] = wellFormedDeep(v);
+    return out as T;
+  }
+  return value;
+}

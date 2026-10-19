@@ -108,6 +108,31 @@ describe("receipts as DSSE / in-toto attestations", () => {
     assert.deepEqual(verifyReceiptSignature(forged.receipt, issuer.publicKeyPem), { ok: false, reason: "BAD_SIGNATURE" });
   });
 
+  it("malformed envelopes are refused, never thrown", () => {
+    const env = toDsseEnvelope(signReceipt(receipt(), issuer.privateKeyPem));
+    for (const raw of ["null", "[]", "42", '"x"', '{"_type":null}']) {
+      const r = fromDsseEnvelope({ ...env, payload: Buffer.from(raw).toString("base64") });
+      assert.equal(r.ok, false, raw);
+    }
+    assert.equal(fromDsseEnvelope(null as never).ok, false);
+    assert.equal(fromDsseEnvelope({ ...env, signatures: [null] } as never).ok, false);
+    assert.equal(fromDsseEnvelope({ ...env, payload: `!!${env.payload}` }).ok, false, "non-canonical base64 payload");
+  });
+
+  it("a signature has exactly one accepted encoding", () => {
+    const signed = signReceipt(receipt(), issuer.privateKeyPem);
+    const value = signed.signature!.value;
+    const variants = [`!!${value}@@`, value.replace(/==$/, ""), `${value}\n`, value.slice(0, 85) + String.fromCharCode(value.charCodeAt(85) ^ 1) + "=="];
+    for (const v of variants) {
+      const r = { ...signed, signature: { ...signed.signature!, value: v } };
+      assert.equal(verifyReceiptSignature(r, issuer.publicKeyPem).ok, false, v);
+      assert.equal(parseReceipt(r).ok, false, v);
+    }
+    const env = toDsseEnvelope(signed);
+    const opened = fromDsseEnvelope({ ...env, signatures: [{ keyid: env.signatures[0]!.keyid, sig: `${env.signatures[0]!.sig}@@` }] });
+    assert.ok(!opened.ok || !verifyReceiptSignature(opened.receipt, issuer.publicKeyPem).ok);
+  });
+
   it("key IDs are sha256 over the SPKI DER bytes", () => {
     const der = createPublicKey(issuer.publicKeyPem).export({ type: "spki", format: "der" });
     assert.equal(keyIdOf(issuer.publicKeyPem), createHash("sha256").update(der).digest("hex").slice(0, 16));

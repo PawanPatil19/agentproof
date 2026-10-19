@@ -33,6 +33,8 @@ const privateKey = createPrivateKey({ key: Buffer.concat([Buffer.from("302e02010
 const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const publicKeyPem = createPublicKey(privateKey).export({ type: "spki", format: "pem" }).toString();
 const COMMITMENT_KEY_HEX = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+// Fixed only so the vectors are reproducible. Real receipts get a random nonce each.
+const NONCE = "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf";
 
 // 1. Canonical JSON (RFC 8785).
 const jcs = [
@@ -46,11 +48,12 @@ const jcs = [
 
 // 2. Salted claim commitments.
 const commitments = [
-  { run_id: "fx-valid", claim_id: "c1", text: "The Pro plan costs $12 per member per month." },
-  { run_id: "fx-valid", claim_id: "c2", text: "Revenue grew 12% in Q3." },
-  { run_id: "run-ünïcode", claim_id: "c-1", text: "Größe: 12 € 😀" },
+  { commitment_nonce: NONCE, claim_id: "c1", text: "The Pro plan costs $12 per member per month." },
+  { commitment_nonce: NONCE, claim_id: "c2", text: "Revenue grew 12% in Q3." },
+  { commitment_nonce: "00000000000000000000000000000001", claim_id: "c2", text: "Revenue grew 12% in Q3." },
+  { commitment_nonce: NONCE, claim_id: "c-ü", text: "Größe: 12 € 😀" },
 ].map((v) => {
-  const salt = claimSalt(Buffer.from(COMMITMENT_KEY_HEX, "hex"), v.run_id, v.claim_id);
+  const salt = claimSalt(Buffer.from(COMMITMENT_KEY_HEX, "hex"), v.commitment_nonce, v.claim_id);
   return { ...v, salt: salt.toString("hex"), text_commitment: commitClaimText(salt, v.text) };
 });
 
@@ -59,7 +62,9 @@ const policy = parsePolicy(readFileSync(new URL("fixtures/agentproof.yaml", root
 const run = JSON.parse(readFileSync(new URL("fixtures/runs/valid.json", root), "utf8"));
 const evaluated = verifyRun(run, { policy, now: () => new Date("2026-10-19T12:00:00.000Z"), commitmentKey: COMMITMENT_KEY_HEX });
 const { receipt_sha256: _d, ...body } = evaluated;
-const unsigned = seal(JSON.parse(JSON.stringify({ ...body, duration_ms: 1.25 })));
+const texts = new Map<string, string>(run.output.claims.map((c: { id: string; text: string }) => [c.id, c.text]));
+const claims = body.claims.map((c) => ({ ...c, text_commitment: commitClaimText(claimSalt(COMMITMENT_KEY_HEX, NONCE, c.id), texts.get(c.id)!) }));
+const unsigned = seal(JSON.parse(JSON.stringify({ ...body, duration_ms: 1.25, commitment_nonce: NONCE, claims })));
 const signed = signReceipt(unsigned, privateKeyPem);
 const payload = receiptPayload(signed);
 
@@ -83,7 +88,7 @@ const vectors = {
     signature_b64: signed.signature!.value,
     signed_receipt: signed,
     dsse_envelope: toDsseEnvelope(signed),
-    disclosure: { claim_id: "c1", salt: claimSalt(Buffer.from(COMMITMENT_KEY_HEX, "hex"), "fx-valid", "c1").toString("hex"), text: run.output.claims[0].text },
+    disclosure: { claim_id: "c1", salt: claimSalt(COMMITMENT_KEY_HEX, NONCE, "c1").toString("hex"), text: texts.get("c1") },
   },
 };
 

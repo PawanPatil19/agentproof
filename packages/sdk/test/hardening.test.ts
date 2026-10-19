@@ -118,4 +118,14 @@ describe("signed receipts from the SDK", () => {
     const receipt = await proof.verifyAnswer({ output: { text: "x", claims: deliverable.output.claims }, evidence: deliverable.evidence });
     assert.equal(verifyReceiptSignature(receipt, pair.publicKeyPem).ok, true);
   });
+
+  it("a commitment key is validated when the verifier is created, and claims can be opened with it", async () => {
+    const { discloseClaim, generateCommitmentKey, verifyClaimDisclosure } = await import("@agentproof/core");
+    await assert.rejects(verifier({ commitmentKey: "not-a-key" }), /hex/);
+    const key = generateCommitmentKey();
+    const proof = await verifier({ commitmentKey: key });
+    const receipt = await proof.verifyAnswer({ output: { text: "x", claims: deliverable.output.claims }, evidence: deliverable.evidence });
+    const claim = deliverable.output.claims[0]!;
+    assert.ok(verifyClaimDisclosure(receipt, discloseClaim(key, receipt, claim.id, claim.text)));
+  });
 });

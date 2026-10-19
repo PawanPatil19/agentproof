@@ -26,7 +26,7 @@ export { BASELINE_POLICY, RESEARCH_HANDOFF_TEMPLATE, TEMPLATES, baselinePolicy, 
 export { contractInstanceDigest, type ContractTerms } from "./contract.ts";
 export { CHECK_IDS, INTEGRITY_CHECKS, isCheckId, type CheckId, type RawResult } from "./checks/index.ts";
 export { canonicalJson, digestOf, sha256 } from "./util/hash.ts";
-export { classifyLocator, normalizeForMatch, redact, safeText, sanitizeLocator, wellFormed } from "./util/text.ts";
+export { classifyLocator, normalizeForMatch, redact, safeText, sanitizeLocator, wellFormed, wellFormedDeep } from "./util/text.ts";
 export { excerptFor, judgeClaims, type Judge, type JudgeInput, type JudgeResult, type JudgeVerdict } from "./semantics.ts";
 export {
   DSSE_PAYLOAD_TYPE,
@@ -54,6 +54,7 @@ export {
   claimSalt,
   commitClaimText,
   commitmentKeyBytes,
+  generateCommitmentNonce,
   discloseClaim,
   generateCommitmentKey,
   verifyClaimDisclosure,

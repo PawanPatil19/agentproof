@@ -44,7 +44,9 @@ Every digest and the signed payload use RFC 8785:
 - No insignificant whitespace.
 
 Receipt strings MUST be valid Unicode (no lone surrogates); the issuer
-replaces any it finds in agent-supplied text with U+FFFD before sealing.
+replaces any it finds in agent-supplied values (run ID, task ID, claim
+text, timestamps…) with U+FFFD before sealing, so every receipt can be
+canonicalized in any language.
 Receipt numbers are integers or finite decimals.
 
 ## 3. The receipt object
@@ -62,6 +64,7 @@ the fields a verifier relies on are:
 | `contract` | The contract instance for worker completions, when present. |
 | `mode`, `decision`, `evaluated_decision`, `reason_codes` | The outcome. In `observe` mode `decision` is always `allow`. |
 | `checks`, `coverage` | Every check result and the totals. |
+| `commitment_nonce` | 32 hex chars, random per receipt; input to every claim salt (§5). |
 | `claims[]` | `{ id, text_commitment, evidence_ids, status }`, plus redacted `text` only if the policy captures claims. |
 | `evidence[]`, `tool_events[]` | IDs, sanitized locators, content digests, tool calls. |
 | `output_sha256` | Hex SHA-256 of the canonical JSON of the output that was checked. |
@@ -85,21 +88,28 @@ covers it.
 A claim's text never appears as a plain hash. Each claim carries
 
 ```
-salt            = HMAC-SHA256(key = K, msg = "agentproof.claim-salt/v1" || 0x00 || run_id || 0x00 || claim.id)
+salt            = HMAC-SHA256(key = K, msg = "agentproof.claim-salt/v2" || 0x00 || commitment_nonce || 0x00 || claim.id)
 text_commitment = "hmac-sha256:" || hex(HMAC-SHA256(key = salt, msg = UTF-8(claim text)))
 ```
 
 where `K` is a commitment key (at least 16 bytes, 32 recommended) that only
-the issuer holds, `run_id` and `claim.id` are the UTF-8 values as they
-appear in the receipt, and the claim text is exactly as the agent submitted
-it (before redaction).
+the issuer holds, `commitment_nonce` (as its 32 ASCII hex characters) and
+`claim.id` are the UTF-8 values as they appear in the receipt, and the claim
+text is exactly as the agent submitted it (before redaction). AgentProof
+reads `K` from raw bytes or a hex string (a key file holds hex), and rejects
+anything else rather than guessing an encoding.
+
+The issuer MUST draw a fresh random `commitment_nonce` for every receipt.
+Agents choose their run IDs and reuse them on retries, so without the nonce
+two receipts could share salts and a disclosure for one would let its holder
+test guesses against the other.
 
 - Without `K`, the salt is unknown, so holding a receipt does not let anyone
   test whether a claim said "Revenue grew 12% in Q3".
 - To open one claim, the issuer gives an auditor a **disclosure**:
   `{ "claim_id", "salt" (64 hex chars), "text" }`. The auditor recomputes
   `text_commitment` from `salt` and `text` and compares it with the signed
-  receipt. A salt opens only its own claim.
+  receipt. A salt opens only its own claim in its own receipt.
 - An issuer that does not configure `K` uses a random one per receipt; those
   commitments can never be opened.
 
@@ -149,19 +159,23 @@ Given a trusted Ed25519 public key `P`:
 **From a DSSE envelope**
 
 1. `payloadType` MUST be `application/vnd.in-toto+json`; exactly one signature.
+   `payload` and `sig` MUST be canonical, padded standard base64 (reject any
+   other encoding of the same bytes); `sig` decodes to 64 bytes.
 2. Ed25519-verify `sig` over `PAE(payloadType, base64decode(payload))` with `P`.
    `keyid` MUST equal the key ID of `P`.
-3. Parse the payload. `_type` and `predicateType` MUST be as in §6.
-4. The predicate MUST have `receipt_version` `agentproof.receipt/v2`, and
-   `subject[0].digest.sha256` MUST equal `predicate.output_sha256`.
+3. Parse the payload as a JSON object with exactly the four members of §6.
+   `_type` and `predicateType` MUST be as in §6, and `subject` MUST be exactly
+   one entry named `output` whose `digest` is exactly `{ "sha256": predicate.output_sha256 }`.
+4. The predicate MUST have `receipt_version` `agentproof.receipt/v2` and no
+   `signature` member.
 5. Recompute the seal (§4) over the predicate; it MUST equal
    `predicate.receipt_sha256`.
+6. The payload bytes MUST equal `JCS(statement)`. Together with step 3 this
+   means the envelope and inline forms can never say different things.
 
-AgentProof's own verifier additionally requires the payload bytes to equal
-`JCS(statement)`, so the envelope and inline forms can never disagree.
-
-**From an inline receipt**: check `signature.alg` is `ed25519` and
-`signature.key_id` is `P`'s key ID, recompute the seal (§4), rebuild the
+**From an inline receipt**: check `signature.alg` is `ed25519`,
+`signature.value` is canonical base64 of 64 bytes and `signature.key_id`
+is `P`'s key ID, recompute the seal (§4), rebuild the
 payload from the receipt (§6) and Ed25519-verify `signature.value` over its
 PAE.
 
@@ -177,16 +191,16 @@ accepts either form.
   NOT reject unknown top-level fields (they are covered by the seal and
   signature like any other).
 - v1 receipts (`agentproof.receipt/v1`: unsalted `text_sha256`, a signature
-  over the digest string) are not accepted by v2 verifiers. AgentProof was
+  over the digest string, no `commitment_nonce`) are not accepted by v2 verifiers. AgentProof was
   pre-release when v2 replaced them.
 
 ## 9. Test vectors
 
 [`spec/receipt-vectors.json`](spec/receipt-vectors.json) contains, from
-fixed inputs (the RFC 8032 test key, a fixed commitment key and clock):
+fixed inputs (the RFC 8032 test key, a fixed commitment key, nonce and clock):
 
 - `canonical_json`: inputs, their RFC 8785 form and SHA-256;
-- `claim_commitments`: `(K, run_id, claim_id, text)` → salt and commitment;
+- `claim_commitments`: `(K, commitment_nonce, claim_id, text)` → salt and commitment;
 - `receipt`: an unsigned receipt, its seal, canonical statement, PAE (hex),
   signature, the inline signed receipt, the DSSE envelope, and one claim
   disclosure.
