@@ -109,3 +109,13 @@ describe("tool guard denies by default", () => {
     assert.equal(ran, false);
   });
 });
+
+describe("signed receipts from the SDK", () => {
+  it("every receipt is signed when a key is configured", async () => {
+    const { generateSigningKey, verifyReceiptSignature } = await import("@agentproof/core");
+    const pair = generateSigningKey();
+    const proof = await verifier({ signingKeyPem: pair.privateKeyPem });
+    const receipt = await proof.verifyAnswer({ output: { text: "x", claims: deliverable.output.claims }, evidence: deliverable.evidence });
+    assert.equal(verifyReceiptSignature(receipt, pair.publicKeyPem).ok, true);
+  });
+});

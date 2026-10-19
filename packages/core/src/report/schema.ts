@@ -70,6 +70,11 @@ const RECEIPT_SCHEMA = {
     },
     output_sha256: str,
     receipt_sha256: str,
+    signature: {
+      type: "object",
+      required: ["alg", "key_id", "value"],
+      properties: { alg: { const: "ed25519" }, key_id: { type: "string", pattern: "^[0-9a-f]{16}$" }, value: { type: "string", maxLength: 200 } },
+    },
   },
 };
 

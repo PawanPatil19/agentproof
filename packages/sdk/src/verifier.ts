@@ -19,6 +19,7 @@ import {
   hashOutput,
   judgeClaims,
   parsePolicy,
+  signReceipt,
   verifyRun,
   type CheckResult,
   type CompiledPolicy,
@@ -56,6 +57,8 @@ export interface VerifierOptions {
    * `checks.semantics`. Sees only claim + excerpt; never the agent's context.
    */
   judge?: Judge;
+  /** Ed25519 private key (PKCS#8 PEM). When set, every receipt is signed before it is stored. */
+  signingKeyPem?: string;
   /** Where receipts go. `false` disables persistence (tests, ephemeral runs). */
   store?: ReceiptStore | false;
   now?: () => Date;
@@ -100,6 +103,7 @@ export class Verifier {
   private readonly store: ReceiptStore | false;
   private readonly identities?: Record<string, string[]>;
   private readonly judge?: Judge;
+  private readonly signingKeyPem?: string;
   private readonly now: () => Date;
   private readonly newId: () => string;
   private readonly ledger = new ContractLedger();
@@ -113,6 +117,7 @@ export class Verifier {
     this.store = options.store === undefined ? new FileReceiptStore() : options.store;
     this.identities = options.identities;
     this.judge = options.judge;
+    this.signingKeyPem = options.signingKeyPem;
     this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? (() => randomUUID().replace(/-/g, "").slice(0, 16));
   }
@@ -378,9 +383,15 @@ export class Verifier {
 
   /** Persist before release. If a durable receipt cannot be written, protected release is blocked. */
   private async finish(evaluated: Receipt): Promise<Receipt> {
-    const receipt = await this.persist(evaluated);
+    let receipt = await this.persist(this.sign(evaluated));
+    // A persistence failure amends (and re-seals) the receipt; sign the final version.
+    if (!receipt.signature && this.signingKeyPem) receipt = this.sign(receipt);
     this.issuedReceipts.set(receipt.receipt_sha256, receipt);
     return receipt;
+  }
+
+  private sign(receipt: Receipt): Receipt {
+    return this.signingKeyPem ? signReceipt(receipt, this.signingKeyPem) : receipt;
   }
 
   private async persist(receipt: Receipt): Promise<Receipt> {
